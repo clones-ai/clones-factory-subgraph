@@ -1,0 +1,491 @@
+# GraphQL Queries for Factory Discovery and Pool Analytics
+# Optimized queries for desktop application integration
+
+# =====================================
+# FACTORY DISCOVERY QUERIES
+# =====================================
+
+# Query all active pools with metadata for search
+query GetPoolsForSearch(
+  $first: Int = 50,
+  $skip: Int = 0,
+  $search: String = "",
+  $tokenFilter: [Bytes!] = [],
+  $creatorFilter: Bytes = null,
+  $minFunding: BigInt = "0"
+) {
+  pools(
+    first: $first,
+    skip: $skip,
+    where: {
+      and: [
+        { isActive: true },
+        { totalFunded_gte: $minFunding },
+        { creator: $creatorFilter },
+        { token_in: $tokenFilter },
+        {
+          or: [
+            { description_contains_nocase: $search },
+            { tags_contains: [$search] }
+          ]
+        }
+      ]
+    },
+    orderBy: lastActivityAt,
+    orderDirection: desc
+  ) {
+    id
+    creator
+    token {
+      id
+      symbol
+      name
+      decimals
+    }
+    factory {
+      id
+      treasury
+    }
+    # Pool Statistics for UI
+    totalFunded
+    totalClaimed
+    totalUsers
+    totalClaims
+    totalFees
+    isActive
+    lastActivityAt
+    # Search Metadata
+    description
+    tags
+    skillsHash
+    taskTypeHash
+    # Timestamps
+    createdAt
+    createdAtBlock
+    updatedAt
+  }
+}
+
+# Query pools by specific skills/task types for desktop search
+query GetPoolsBySkills(
+  $skills: [String!]!,
+  $taskTypes: [String!] = [],
+  $first: Int = 20
+) {
+  poolMetadata(
+    first: $first,
+    where: {
+      and: [
+        { skills_contains: $skills },
+        { taskTypes_contains: $taskTypes },
+        { pool_: { isActive: true } }
+      ]
+    },
+    orderBy: updatedAt,
+    orderDirection: desc
+  ) {
+    id
+    pool {
+      id
+      creator
+      token {
+        symbol
+        name
+        decimals
+      }
+      totalFunded
+      totalUsers
+      lastActivityAt
+    }
+    skills
+    taskTypes
+    description
+    tags
+    searchString
+  }
+}
+
+# Query factory statistics for dashboard
+query GetFactoryOverview {
+  factoryStats(id: "factory-stats") {
+    totalPools
+    totalVolume
+    totalFees
+    totalUsers
+    totalClaims
+    averagePoolSize
+    updatedAt
+  }
+  
+  factories {
+    id
+    totalPools
+    publisher
+    oldPublisher
+    graceEndTime
+    allowedTokens {
+      symbol
+      name
+      isAllowed
+      totalPools
+      totalVolume
+    }
+  }
+}
+
+# =====================================
+# POOL ANALYTICS QUERIES  
+# =====================================
+
+# Detailed pool analytics for desktop factory management
+query GetPoolDetails($poolId: Bytes!) {
+  pool(id: $poolId) {
+    id
+    creator
+    token {
+      id
+      symbol
+      name
+      decimals
+      totalPools
+    }
+    factory {
+      id
+      publisher
+      treasury
+    }
+    
+    # Pool Statistics
+    totalFunded
+    totalClaimed  
+    totalFees
+    totalUsers
+    totalClaims
+    isActive
+    lastActivityAt
+    
+    # Recent Activity
+    claims(
+      first: 10,
+      orderBy: timestamp,
+      orderDirection: desc
+    ) {
+      id
+      user {
+        id
+      }
+      cumulativeAmount
+      grossAmount
+      feeAmount
+      netAmount
+      timestamp
+      transactionHash
+    }
+    
+    fundings(
+      first: 10,
+      orderBy: timestamp,
+      orderDirection: desc
+    ) {
+      id
+      funder {
+        id
+      }
+      amount
+      timestamp
+      transactionHash
+    }
+    
+    # Metadata
+    description
+    tags
+    skillsHash
+    taskTypeHash
+  }
+}
+
+# User claim history for farmer dashboard
+query GetUserClaimHistory(
+  $userAddress: Bytes!,
+  $first: Int = 50,
+  $skip: Int = 0
+) {
+  user(id: $userAddress) {
+    id
+    totalClaimed
+    totalFeesPaid
+    uniquePools
+    totalClaims
+    firstActivityAt
+    lastActivityAt
+    
+    claims(
+      first: $first,
+      skip: $skip,
+      orderBy: timestamp,
+      orderDirection: desc
+    ) {
+      id
+      pool {
+        id
+        creator
+        token {
+          symbol
+          name
+          decimals
+        }
+        description
+      }
+      cumulativeAmount
+      grossAmount
+      feeAmount
+      netAmount
+      timestamp
+      transactionHash
+      blockNumber
+    }
+  }
+}
+
+# =====================================
+# BATCH CLAIMS ANALYTICS
+# =====================================
+
+# Batch claim analytics for performance monitoring  
+query GetBatchClaimAnalytics(
+  $first: Int = 100,
+  $skip: Int = 0,
+  $timeframe: BigInt = "0"
+) {
+  batchClaims(
+    first: $first,
+    skip: $skip,
+    where: {
+      timestamp_gte: $timeframe
+    },
+    orderBy: timestamp,
+    orderDirection: desc
+  ) {
+    id
+    caller
+    successful
+    failed
+    totalGross
+    totalFees
+    totalNet
+    gasUsed
+    gasPrice
+    gasCost
+    timestamp
+    blockNumber
+    
+    # Success/Failure Details
+    successes(first: 5) {
+      vault
+      account
+      factory
+      gross
+      fee
+      net
+    }
+    
+    failures(first: 5) {
+      vault
+      account
+      reason
+    }
+  }
+}
+
+# Daily statistics for analytics dashboard
+query GetDailyStats(
+  $startDate: String!,
+  $endDate: String!
+) {
+  dailyStats(
+    where: {
+      date_gte: $startDate,
+      date_lte: $endDate
+    },
+    orderBy: date,
+    orderDirection: asc
+  ) {
+    id
+    date
+    poolsCreated
+    volume
+    fees
+    uniqueUsers
+    totalClaims
+    batchClaims
+    averageGasPrice
+    totalGasUsed
+    averageClaimCost
+  }
+}
+
+# =====================================
+# TOKEN ANALYTICS
+# =====================================
+
+# Token performance analytics
+query GetTokenAnalytics {
+  tokens(
+    where: {
+      isAllowed: true
+    },
+    orderBy: totalVolume,
+    orderDirection: desc
+  ) {
+    id
+    symbol
+    name
+    decimals
+    isAllowed
+    totalPools
+    totalVolume
+    totalFees
+    
+    # Top pools by volume
+    pools(
+      first: 5,
+      orderBy: totalFunded,
+      orderDirection: desc
+    ) {
+      id
+      creator
+      totalFunded
+      totalClaimed
+      totalUsers
+      lastActivityAt
+    }
+  }
+}
+
+# =====================================
+# PUBLISHER MANAGEMENT
+# =====================================
+
+# Publisher rotation history for governance monitoring
+query GetPublisherRotations(
+  $factoryAddress: Bytes!,
+  $first: Int = 20
+) {
+  publisherRotations(
+    where: {
+      factory: $factoryAddress
+    },
+    first: $first,
+    orderBy: initiatedAt,
+    orderDirection: desc
+  ) {
+    id
+    factory {
+      id
+    }
+    oldPublisher
+    newPublisher
+    graceEndTime
+    status
+    initiatedAt
+    completedAt
+  }
+}
+
+# =====================================
+# DESKTOP-SPECIFIC SEARCH QUERIES
+# =====================================
+
+# Optimized search for desktop factory browser
+query SearchFactoriesDesktop(
+  $searchText: String!,
+  $tokenAddress: Bytes = null,
+  $minActivity: BigInt = "0",
+  $limit: Int = 25
+) {
+  pools(
+    first: $limit,
+    where: {
+      and: [
+        { isActive: true },
+        { lastActivityAt_gte: $minActivity },
+        { token: $tokenAddress },
+        {
+          or: [
+            { description_contains_nocase: $searchText },
+            { tags_contains: [$searchText] }
+          ]
+        }
+      ]
+    },
+    orderBy: lastActivityAt,
+    orderDirection: desc
+  ) {
+    id
+    creator
+    token {
+      symbol
+      name
+      decimals
+    }
+    totalFunded
+    totalUsers
+    lastActivityAt
+    description
+    tags
+    # Minimal data for fast loading
+  }
+}
+
+# Factory creator dashboard - get all pools for a specific creator
+query GetCreatorPools(
+  $creatorAddress: Bytes!,
+  $first: Int = 50
+) {
+  pools(
+    where: {
+      creator: $creatorAddress
+    },
+    first: $first,
+    orderBy: createdAt,
+    orderDirection: desc
+  ) {
+    id
+    token {
+      symbol
+      name
+      decimals
+    }
+    totalFunded
+    totalClaimed
+    totalUsers
+    totalClaims
+    totalFees
+    isActive
+    lastActivityAt
+    createdAt
+    
+    # Recent activity summary
+    claims(first: 3, orderBy: timestamp, orderDirection: desc) {
+      timestamp
+      netAmount
+    }
+    
+    fundings(first: 3, orderBy: timestamp, orderDirection: desc) {
+      timestamp  
+      amount
+    }
+  }
+}
+
+# Health check query for monitoring
+query HealthCheck {
+  _meta {
+    deployment
+    hasIndexingErrors
+    block {
+      number
+      timestamp
+    }
+  }
+}

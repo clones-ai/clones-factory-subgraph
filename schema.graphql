@@ -1,0 +1,227 @@
+# Factory and Pool Management
+type Factory @entity(immutable: false) {
+  id: Bytes! # Factory contract address
+  implementation: Bytes! # Implementation contract address
+  treasury: Bytes! # Platform treasury address
+  timelock: Bytes! # Timelock governance address
+  guardian: Bytes! # Guardian address
+  publisher: Bytes! # Current publisher address
+  oldPublisher: Bytes # Previous publisher during rotation
+  graceEndTime: BigInt # Grace period end time for old publisher
+  totalPools: BigInt! # Total number of pools created
+  allowedTokens: [Token!]! @derivedFrom(field: "factory") # Allowed tokens
+  pools: [Pool!]! @derivedFrom(field: "factory") # All pools created by this factory
+  createdAt: BigInt! # Block timestamp
+  createdAtBlock: BigInt! # Block number
+}
+
+type Pool @entity(immutable: false) {
+  id: Bytes! # Pool contract address
+  factory: Factory! # Factory that created this pool
+  creator: Bytes! # Pool creator address
+  token: Token! # Reward token
+  salt: Bytes! # CREATE2 salt used for deployment
+  
+  # Pool Statistics
+  totalFunded: BigInt! # Total amount funded
+  totalClaimed: BigInt! # Total amount claimed by all users
+  totalFees: BigInt! # Total platform fees collected
+  totalUsers: BigInt! # Number of unique users who claimed
+  totalClaims: BigInt! # Number of total claims
+  
+  # Pool State
+  isActive: Boolean! # Whether pool is active
+  lastActivityAt: BigInt! # Last claim timestamp
+  
+  # IPFS Metadata for Search
+  skillsHash: String # IPFS hash for skills metadata
+  taskTypeHash: String # IPFS hash for task type metadata
+  description: String # Pool description
+  tags: [String!] # Searchable tags
+  
+  # Relations
+  fundings: [Funding!]! @derivedFrom(field: "pool")
+  claims: [Claim!]! @derivedFrom(field: "pool")
+  
+  # Timestamps
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+  updatedAt: BigInt!
+}
+
+type Token @entity(immutable: false) {
+  id: Bytes! # Token contract address
+  factory: Factory! # Factory that allows this token
+  symbol: String! # Token symbol (USDC, WETH, etc)
+  name: String! # Token name
+  decimals: Int! # Token decimals
+  isAllowed: Boolean! # Whether token is currently allowed
+  
+  # Token Statistics
+  totalPools: BigInt! # Number of pools using this token
+  totalVolume: BigInt! # Total volume across all pools
+  totalFees: BigInt! # Total fees collected in this token
+  
+  # Relations
+  pools: [Pool!]! @derivedFrom(field: "token")
+  
+  # Timestamps
+  createdAt: BigInt!
+  updatedAt: BigInt!
+}
+
+# User Activities and Claims
+type User @entity(immutable: false) {
+  id: Bytes! # User address
+  totalClaimed: BigInt! # Total amount claimed across all pools
+  totalFeesPaid: BigInt! # Total fees paid across all pools
+  uniquePools: BigInt! # Number of unique pools claimed from
+  totalClaims: BigInt! # Total number of claims
+  
+  # Relations
+  claims: [Claim!]! @derivedFrom(field: "user")
+  fundings: [Funding!]! @derivedFrom(field: "funder")
+  
+  # Timestamps
+  firstActivityAt: BigInt!
+  lastActivityAt: BigInt!
+}
+
+type Claim @entity(immutable: true) {
+  id: Bytes! # Transaction hash + log index
+  pool: Pool! # Pool contract
+  user: User! # User who claimed
+  cumulativeAmount: BigInt! # Cumulative amount (from event)
+  grossAmount: BigInt! # Amount claimed this time (calculated)
+  feeAmount: BigInt! # Platform fee deducted
+  netAmount: BigInt! # Net amount received by user
+  
+  # Transaction Info
+  transactionHash: Bytes!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  gasUsed: BigInt # Gas used for this claim
+  gasPrice: BigInt # Gas price paid
+}
+
+type Funding @entity(immutable: true) {
+  id: Bytes! # Transaction hash + log index
+  pool: Pool! # Pool funded
+  funder: User! # Who funded the pool
+  amount: BigInt! # Amount funded
+  
+  # Transaction Info
+  transactionHash: Bytes!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+# Batch Claims and Router Analytics
+type BatchClaim @entity(immutable: true) {
+  id: Bytes! # Transaction hash
+  caller: Bytes! # Who initiated the batch
+  successful: BigInt! # Number of successful claims
+  failed: BigInt! # Number of failed claims
+  totalGross: BigInt! # Total gross amount
+  totalFees: BigInt! # Total fees
+  totalNet: BigInt! # Total net amount
+  
+  # Gas Analytics
+  gasUsed: BigInt # Total gas used
+  gasPrice: BigInt # Gas price
+  gasCost: BigInt # Total gas cost in wei
+  
+  # Relations
+  successes: [ClaimSuccess!]! @derivedFrom(field: "batchClaim")
+  failures: [ClaimFailure!]! @derivedFrom(field: "batchClaim")
+  
+  # Timestamps
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+type ClaimSuccess @entity(immutable: true) {
+  id: Bytes! # Transaction hash + log index
+  batchClaim: BatchClaim! # Parent batch
+  vault: Bytes! # Vault address
+  account: Bytes! # Account that received funds
+  factory: Bytes! # Factory that created the vault
+  gross: BigInt! # Gross amount
+  fee: BigInt! # Fee amount
+  net: BigInt! # Net amount
+}
+
+type ClaimFailure @entity(immutable: true) {
+  id: Bytes! # Transaction hash + log index
+  batchClaim: BatchClaim! # Parent batch
+  vault: Bytes! # Vault address
+  account: Bytes! # Account that should have received funds
+  reason: String! # Failure reason
+}
+
+# Publisher Management
+type PublisherRotation @entity(immutable: true) {
+  id: Bytes! # Transaction hash
+  factory: Factory! # Factory where rotation occurred
+  oldPublisher: Bytes! # Previous publisher
+  newPublisher: Bytes! # New publisher
+  graceEndTime: BigInt! # When grace period ends
+  status: PublisherRotationStatus! # Current status
+  
+  # Timestamps
+  initiatedAt: BigInt!
+  completedAt: BigInt # When rotation completed (if cancelled)
+}
+
+enum PublisherRotationStatus {
+  ACTIVE # Rotation in progress
+  CANCELLED # Rotation was cancelled
+  COMPLETED # Grace period ended
+}
+
+# Analytics and Search Entities
+type FactoryStats @entity(immutable: false) {
+  id: String! # "factory-stats"
+  totalPools: BigInt!
+  totalVolume: BigInt!
+  totalFees: BigInt!
+  totalUsers: BigInt!
+  totalClaims: BigInt!
+  averagePoolSize: BigInt!
+  
+  # Updated daily
+  updatedAt: BigInt!
+}
+
+type DailyStats @entity(immutable: false) {
+  id: String! # "YYYY-MM-DD"
+  date: String!
+  poolsCreated: BigInt!
+  volume: BigInt!
+  fees: BigInt!
+  uniqueUsers: BigInt!
+  totalClaims: BigInt!
+  batchClaims: BigInt!
+  
+  # Gas Analytics
+  averageGasPrice: BigInt!
+  totalGasUsed: BigInt!
+  averageClaimCost: BigInt!
+}
+
+# IPFS Metadata for Search
+type PoolMetadata @entity(immutable: false) {
+  id: Bytes! # Pool address
+  pool: Pool! # Reference to pool
+  skillsHash: String # IPFS hash for skills
+  taskTypeHash: String # IPFS hash for task types
+  skills: [String!] # Extracted skills for search
+  taskTypes: [String!] # Extracted task types for search
+  description: String # Pool description
+  tags: [String!] # Searchable tags
+  
+  # Indexing
+  searchString: String! # Concatenated searchable text
+  
+  updatedAt: BigInt!
+}
