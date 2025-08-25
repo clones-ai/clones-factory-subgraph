@@ -192,7 +192,7 @@ query BatchClaimAnalytics {
 ## 📁 Project Structure
 
 ```
-clones-subgraph/
+clones-factory-subgraph/
 ├── src/                          # Core mapping handlers
 │   ├── factory.ts               # RewardPoolFactory event handlers
 │   ├── claim-router.ts          # ClaimRouter event processing  

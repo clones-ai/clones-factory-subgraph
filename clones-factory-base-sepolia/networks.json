@@ -1,8 +1,0 @@
-{
-  "base-sepolia": {
-    "RewardPool": {
-      "address": "0x70ca2a056Ff9f460138ed161cc1C343e31A9e061",
-      "startBlock": 30005115
-    }
-  }
-}
