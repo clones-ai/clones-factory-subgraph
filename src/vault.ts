@@ -5,7 +5,7 @@ import {
   EmergencySweep
 } from "../generated/templates/RewardPoolVault/RewardPoolImplementation";
 
-import { Pool, User, Claim, Funding, Token, FactoryStats, DailyStats } from "../generated/schema";
+import { Pool, User, Claim, Funding, Token, FactoryStats, DailyStatistic } from "../generated/schema";
 import { BigInt, Bytes, Address } from "@graphprotocol/graph-ts";
 
 // Constants
@@ -22,7 +22,7 @@ export function handleFunded(event: Funded): void {
   if (!pool) {
     return; // Pool should exist from PoolCreated event
   }
-  
+
   // Load or create user
   let user = User.load(event.params.funder);
   if (!user) {
@@ -37,7 +37,7 @@ export function handleFunded(event: Funded): void {
     user.lastActivityAt = event.block.timestamp;
   }
   user.save();
-  
+
   // Create funding record
   let fundingId = event.transaction.hash.concatI32(event.logIndex.toI32());
   let funding = new Funding(fundingId);
@@ -48,13 +48,13 @@ export function handleFunded(event: Funded): void {
   funding.blockNumber = event.block.number;
   funding.timestamp = event.block.timestamp;
   funding.save();
-  
+
   // Update pool statistics
   pool.totalFunded = pool.totalFunded.plus(event.params.amount);
   pool.lastActivityAt = event.block.timestamp;
   pool.updatedAt = event.block.timestamp;
   pool.save();
-  
+
   // Update token statistics
   let token = Token.load(pool.token);
   if (token) {
@@ -62,7 +62,7 @@ export function handleFunded(event: Funded): void {
     token.updatedAt = event.block.timestamp;
     token.save();
   }
-  
+
   // Update daily stats
   updateDailyStats(event.block.timestamp, BigInt.zero(), event.params.amount, BigInt.zero(), false);
 }
@@ -76,7 +76,7 @@ export function handleClaimed(event: ClaimedMinimal): void {
   if (!pool) {
     return; // Pool should exist
   }
-  
+
   // Load or create user
   let user = User.load(event.params.account);
   if (!user) {
@@ -90,22 +90,22 @@ export function handleClaimed(event: ClaimedMinimal): void {
   } else {
     user.lastActivityAt = event.block.timestamp;
   }
-  
+
   // Calculate amounts from cumulative pattern
   // Note: This is a simplified calculation. In practice, you'd need to track
   // previous cumulative amounts to calculate the exact gross/fee/net
   let cumulativeAmount = event.params.cumulativeAmount;
-  
+
   // Estimate fee (cumulative * 10%)
   let cumulativeFee = cumulativeAmount.times(PLATFORM_FEE_BPS).div(BASIS_POINTS);
   let cumulativeNet = cumulativeAmount.minus(cumulativeFee);
-  
+
   // For this event, we'll record the cumulative amounts
   // A more sophisticated approach would track previous states
   let grossAmount = cumulativeAmount; // Simplified - actual would be incremental
   let feeAmount = cumulativeFee; // Simplified
   let netAmount = cumulativeNet; // Simplified
-  
+
   // Create claim record
   let claimId = event.transaction.hash.concatI32(event.logIndex.toI32());
   let claim = new Claim(claimId);
@@ -121,7 +121,7 @@ export function handleClaimed(event: ClaimedMinimal): void {
   claim.gasUsed = BigInt.zero(); // Not available in subgraph context
   claim.gasPrice = BigInt.zero(); // Not available in subgraph context
   claim.save();
-  
+
   // Update user statistics
   let isNewPoolForUser = !userHasClaimedFromPool(event.params.account, event.address);
   if (isNewPoolForUser) {
@@ -131,7 +131,7 @@ export function handleClaimed(event: ClaimedMinimal): void {
   user.totalFeesPaid = user.totalFeesPaid.plus(feeAmount);
   user.totalClaims = user.totalClaims.plus(BigInt.fromI32(1));
   user.save();
-  
+
   // Update pool statistics
   pool.totalClaimed = pool.totalClaimed.plus(grossAmount);
   pool.totalFees = pool.totalFees.plus(feeAmount);
@@ -142,7 +142,7 @@ export function handleClaimed(event: ClaimedMinimal): void {
   pool.lastActivityAt = event.block.timestamp;
   pool.updatedAt = event.block.timestamp;
   pool.save();
-  
+
   // Update token statistics
   let token = Token.load(pool.token);
   if (token) {
@@ -151,7 +151,7 @@ export function handleClaimed(event: ClaimedMinimal): void {
     token.updatedAt = event.block.timestamp;
     token.save();
   }
-  
+
   // Update global and daily stats
   updateFactoryStats(grossAmount, feeAmount, isNewPoolForUser);
   updateDailyStats(event.block.timestamp, grossAmount, BigInt.zero(), BigInt.fromI32(1), false);
@@ -203,19 +203,19 @@ function updateFactoryStats(grossAmount: BigInt, feeAmount: BigInt, isNewUser: b
     stats.averagePoolSize = BigInt.zero();
     stats.updatedAt = BigInt.fromI32(1);
   }
-  
+
   stats.totalVolume = stats.totalVolume.plus(grossAmount);
   stats.totalFees = stats.totalFees.plus(feeAmount);
   stats.totalClaims = stats.totalClaims.plus(BigInt.fromI32(1));
   if (isNewUser) {
     stats.totalUsers = stats.totalUsers.plus(BigInt.fromI32(1));
   }
-  
+
   // Calculate average pool size
   if (stats.totalPools.gt(BigInt.zero())) {
     stats.averagePoolSize = stats.totalVolume.div(stats.totalPools);
   }
-  
+
   stats.updatedAt = BigInt.fromI32(1); // Placeholder timestamp
   stats.save();
 }
@@ -224,19 +224,20 @@ function updateFactoryStats(grossAmount: BigInt, feeAmount: BigInt, isNewUser: b
  * Update daily statistics for analytics dashboard
  */
 function updateDailyStats(
-  timestamp: BigInt, 
-  volume: BigInt, 
-  funding: BigInt, 
+  timestamp: BigInt,
+  volume: BigInt,
+  funding: BigInt,
   claims: BigInt,
   isBatch: boolean
 ): void {
-  // Convert timestamp to date string (YYYY-MM-DD)
+  // Use the timestamp for the start of the day as the ID.
   let dayTimestamp = timestamp.div(BigInt.fromI32(86400)).times(BigInt.fromI32(86400));
-  let date = new Date(dayTimestamp.toI32() * 1000).toISOString().split('T')[0];
-  
-  let stats = DailyStats.load(date);
+  let dayId = dayTimestamp.toString();
+
+  let stats = DailyStatistic.load(dayId);
   if (!stats) {
-    stats = new DailyStats(date);
+    stats = new DailyStatistic(dayId);
+    let date = new Date(dayTimestamp.toI32() * 1000).toISOString().split('T')[0]; // Keep for date field
     stats.date = date;
     stats.poolsCreated = BigInt.zero();
     stats.volume = BigInt.zero();
@@ -248,12 +249,12 @@ function updateDailyStats(
     stats.totalGasUsed = BigInt.zero();
     stats.averageClaimCost = BigInt.zero();
   }
-  
+
   stats.volume = stats.volume.plus(volume).plus(funding);
   stats.totalClaims = stats.totalClaims.plus(claims);
   if (isBatch) {
     stats.batchClaims = stats.batchClaims.plus(BigInt.fromI32(1));
   }
-  
+
   stats.save();
 }

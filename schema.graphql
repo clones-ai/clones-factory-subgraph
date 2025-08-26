@@ -193,7 +193,7 @@ type FactoryStats @entity(immutable: false) {
   updatedAt: BigInt!
 }
 
-type DailyStats @entity(immutable: false) {
+type DailyStatistic @entity(immutable: false) {
   id: String! # "YYYY-MM-DD"
   date: String!
   poolsCreated: BigInt!

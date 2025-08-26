@@ -4,9 +4,9 @@ This subgraph indexes the Clones factory system smart contracts for discovery an
 
 ## 📊 Architecture
 
-### Indexed Contracts (Base Sepolia)
-- **RewardPoolFactory**: `0x80C79106b527f9237F200f7c03ca12035db66CB1`
-- **ClaimRouter**: `0x257AE32ea73a166DD22A1608cD7D8fbb00722385`  
+### Indexed Contracts
+- **RewardPoolFactory**
+- **ClaimRouter**
 - **RewardPoolVault Templates**: Dynamically created vaults via EIP-1167
 
 > **Note**: Mainnet contract addresses will be added here once production deployment is complete.
@@ -66,7 +66,32 @@ graph deploy <SUBGRAPH_SLUG>
 - Test thoroughly in Studio before publishing to mainnet
 - Check deployment logs for errors in the Studio dashboard
 
-## 📈 Key Query Patterns
+## Subgraph Updates (After Contract Modification)
+
+When smart contracts are modified and redeployed, the subgraph must be updated to reflect these changes. Here is the process to follow:
+
+1.  **Update ABIs**:
+    -   Copy the new ABI (`.json`) files generated from your contract compilation.
+    -   Replace the old files in the `abis/` directory.
+
+2.  **Modify `subgraph.yaml`**:
+    -   **Contract Addresses**: Update the addresses in the `dataSources` section.
+    -   **Start Block**: Change the `startBlock` value to match the deployment block of the new contracts. This avoids indexing unnecessary events from the old contracts.
+    -   **Event Signatures**: If an event's structure has changed (parameters added/removed), update its signature in the `eventHandlers` section.
+
+3.  **Regenerate Types and Update Mappings**:
+    -   Run `npx graph codegen` to update the AssemblyScript classes based on the new ABIs.
+    -   Modify the mapping functions (handlers in `src/`) to match the new event signatures. For example, if an event has a new parameter, its handling function must be adapted to receive it.
+
+4.  **Build and Deploy**:
+    -   Build the subgraph with `npx graph build`.
+    -   Deploy a new version to The Graph Studio:
+        ```bash
+        graph deploy <YOUR_SUBGRAPH_SLUG>
+        ```
+    -   During deployment, the CLI will prompt you to assign a new version number (e.g., `v0.0.2`).
+
+## Key Query Patterns
 
 ### Discovery Queries
 ```graphql
@@ -141,7 +166,7 @@ query BatchClaimAnalytics {
 }
 ```
 
-## 🔍 Schema Highlights
+## Schema Highlights
 
 ### Core Entities
 - **Factory**: Main factory contract with governance info
@@ -156,7 +181,7 @@ query BatchClaimAnalytics {
 - **FactoryStats**: Global system metrics
 - **PoolMetadata**: IPFS integration for search functionality
 
-## 🎯 Search Features
+## Search Features
 
 ### IPFS Integration
 - `skillsHash`: IPFS hash linking to skills metadata
@@ -169,7 +194,7 @@ query BatchClaimAnalytics {
 - Time-series data for trend analysis
 - Gas cost tracking for optimization recommendations
 
-## 📊 Performance
+## Performance
 
 ### Indexing Performance
 - **Start Block**: 16830000 (Base Sepolia deployment block)
@@ -182,14 +207,14 @@ query BatchClaimAnalytics {
 - Batch operation success/failure rates
 - Publisher rotation tracking for governance
 
-## 🛡️ Security Features
+## Security Features
 
 - **Factory Validation**: Anti-phishing via approved factory registry
 - **Publisher Authority**: Centralized governance tracking
 - **Emergency Monitoring**: Sweep and pause event tracking
 - **Audit Trail**: Complete transaction history with block timestamps
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 clones-factory-subgraph/
@@ -231,3 +256,24 @@ The subgraph generates TypeScript types for:
 - Integration tests with local Graph Node
 - Performance testing with high-volume scenarios
 - Cross-chain compatibility validation
+
+### Testing
+
+The project includes a query testing script to validate the subgraph's functionality against a live deployment (e.g., Base Sepolia).
+
+To run the tests:
+
+1. **Set up your environment**:
+   - Create a `.env` file in the root of this project. You can copy the `.env.example` file.
+   - `cp .env.example .env`
+   - Set the `SUBGRAPH_URL` in your `.env` file to point to your deployed subgraph endpoint.
+   
+   ```bash
+   # .env
+   SUBGRAPH_URL="https://your-subgraph-endpoint-url"
+   ```
+
+2. **Run the test script**:
+   ```bash
+   npm run test-queries
+   ```

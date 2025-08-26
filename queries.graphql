@@ -302,7 +302,7 @@ query GetDailyStats(
   $startDate: String!,
   $endDate: String!
 ) {
-  dailyStats(
+  dailyStatistics(
     where: {
       date_gte: $startDate,
       date_lte: $endDate

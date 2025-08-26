@@ -5,12 +5,12 @@ import {
   FactoryApprovalUpdated
 } from "../generated/ClaimRouter/ClaimRouter";
 
-import { 
-  BatchClaim, 
-  ClaimSuccess, 
-  ClaimFailure, 
+import {
+  BatchClaim,
+  ClaimSuccess,
+  ClaimFailure,
   Factory,
-  DailyStats 
+  DailyStatistic
 } from "../generated/schema";
 import { BigInt, Bytes } from "@graphprotocol/graph-ts";
 
@@ -26,18 +26,18 @@ export function handleBatchClaimed(event: BatchClaimed): void {
   batchClaim.totalGross = event.params.totalGross;
   batchClaim.totalFees = event.params.totalFees;
   batchClaim.totalNet = event.params.totalNet;
-  
+
   // Gas analytics - Note: transaction.gasUsed not available in subgraph context
   batchClaim.gasUsed = BigInt.zero(); // Would need to be calculated off-chain
   batchClaim.gasPrice = BigInt.zero(); // Would need to be extracted from receipt
   batchClaim.gasCost = BigInt.zero(); // Would need to be calculated off-chain
-  
+
   // Timestamps
   batchClaim.timestamp = event.params.timestamp;
   batchClaim.blockNumber = event.block.number;
-  
+
   batchClaim.save();
-  
+
   // Update daily stats for batch claims
   updateDailyStats(event.block.timestamp, event.params.totalGross, true, BigInt.zero(), BigInt.zero());
 }
@@ -56,7 +56,7 @@ export function handleClaimSucceeded(event: ClaimSucceeded): void {
   success.gross = event.params.gross;
   success.fee = event.params.fee;
   success.net = event.params.net;
-  
+
   success.save();
 }
 
@@ -71,7 +71,7 @@ export function handleClaimFailed(event: ClaimFailed): void {
   failure.vault = event.params.vault;
   failure.account = event.params.account;
   failure.reason = event.params.reason;
-  
+
   failure.save();
 }
 
@@ -91,19 +91,20 @@ export function handleFactoryApprovalUpdated(event: FactoryApprovalUpdated): voi
  * Update daily statistics for batch claim analytics
  */
 function updateDailyStats(
-  timestamp: BigInt, 
-  volume: BigInt, 
+  timestamp: BigInt,
+  volume: BigInt,
   isBatch: boolean,
   gasUsed: BigInt,
   gasPrice: BigInt
 ): void {
-  // Convert timestamp to date string (YYYY-MM-DD)
+  // Use the timestamp for the start of the day as the ID
   let dayTimestamp = timestamp.div(BigInt.fromI32(86400)).times(BigInt.fromI32(86400));
-  let date = new Date(dayTimestamp.toI32() * 1000).toISOString().split('T')[0];
-  
-  let stats = DailyStats.load(date);
+  let dayId = dayTimestamp.toString();
+
+  let stats = DailyStatistic.load(dayId);
   if (!stats) {
-    stats = new DailyStats(date);
+    stats = new DailyStatistic(dayId);
+    let date = new Date(dayTimestamp.toI32() * 1000).toISOString().split('T')[0]; // Keep for date field
     stats.date = date;
     stats.poolsCreated = BigInt.zero();
     stats.volume = BigInt.zero();
@@ -115,16 +116,16 @@ function updateDailyStats(
     stats.totalGasUsed = BigInt.zero();
     stats.averageClaimCost = BigInt.zero();
   }
-  
+
   stats.volume = stats.volume.plus(volume);
   if (isBatch) {
     stats.batchClaims = stats.batchClaims.plus(BigInt.fromI32(1));
   }
-  
+
   // Update gas analytics
   stats.totalGasUsed = stats.totalGasUsed.plus(gasUsed);
   stats.averageGasPrice = gasPrice; // Simplified - should be weighted average
   stats.averageClaimCost = gasUsed.times(gasPrice); // Simplified
-  
+
   stats.save();
 }

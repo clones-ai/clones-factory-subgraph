@@ -1,6 +1,6 @@
 {
   "name": "clones-factory-subgraph",
-  "version": "1.0.0",
+  "version": "0.0.7",
   "description": "The Graph subgraph for Clones Factory system",
   "scripts": {
     "codegen": "graph codegen",
@@ -9,13 +9,10 @@
     "create-local": "graph create --node http://localhost:8020/ clones/factory",
     "remove-local": "graph remove --node http://localhost:8020/ clones/factory",
     "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 clones/factory",
-    "deploy-sepolia": "graph deploy --studio clones-factory-sepolia subgraph.yaml",
-    "deploy-mainnet": "graph deploy --studio clones-factory-mainnet subgraph-mainnet.yaml",
-    "prepare-sepolia": "graph codegen subgraph.yaml && graph build subgraph.yaml",
-    "prepare-mainnet": "graph codegen subgraph-mainnet.yaml && graph build subgraph-mainnet.yaml",
     "test-queries": "node scripts/test-queries.js"
   },
   "dependencies": {
+    "dotenv": "^16.4.5",
     "@graphprotocol/graph-cli": "0.97.1",
     "@graphprotocol/graph-ts": "0.35.1",
     "graphql": "^16.11.0",
