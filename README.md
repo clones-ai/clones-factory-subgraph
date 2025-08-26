@@ -2,7 +2,7 @@
 
 This subgraph indexes the Clones factory system smart contracts for discovery and search functionality. Currently configured for Base Sepolia testnet during development phase. Mainnet deployment addresses will be updated upon production release.
 
-## 📊 Architecture
+## Architecture
 
 ### Indexed Contracts
 - **RewardPoolFactory**
@@ -18,7 +18,7 @@ This subgraph indexes the Clones factory system smart contracts for discovery an
 - **Advanced Analytics**: Daily stats, user statistics, performance metrics
 - **Search Optimization**: Efficient queries by skills, taskType, owner via GraphQL
 
-## 🚀 Deployment
+## Deployment
 
 ### Local Development
 ```bash
