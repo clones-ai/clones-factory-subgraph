@@ -30,13 +30,6 @@ const TEST_QUERIES = {
         id
         totalPools
         publisher
-        allowedTokens {
-          symbol
-          name
-          isAllowed
-          totalPools
-          totalVolume
-        }
       }
     }
   `,
@@ -93,18 +86,6 @@ const TEST_QUERIES = {
         totalPools
         totalVolume
         totalFees
-        
-        pools(
-          first: 3,
-          orderBy: totalFunded,
-          orderDirection: desc
-        ) {
-          id
-          creator
-          totalFunded
-          totalClaimed
-          totalUsers
-        }
       }
     }
   `,

@@ -5,13 +5,50 @@ import {
   EmergencySweep
 } from "../generated/templates/RewardPoolVault/RewardPoolImplementation";
 
-import { Pool, User, Claim, Funding, Token, FactoryStats, DailyStatistic } from "../generated/schema";
+import { Pool, User, Claim, Funding, Token, FactoryStats, DailyStatistic, UserPoolState } from "../generated/schema";
 import { BigInt, Bytes, Address } from "@graphprotocol/graph-ts";
 
 // Constants
 const FACTORY_STATS_ID = "factory-stats";
 const PLATFORM_FEE_BPS = BigInt.fromI32(1000); // 10% = 1000 basis points
 const BASIS_POINTS = BigInt.fromI32(10000);
+
+/**
+ * Create new user entity with proper initialization
+ */
+function createUser(userAddress: Bytes, timestamp: BigInt): User {
+  let user = new User(userAddress);
+  user.totalClaimed = BigInt.zero();
+  user.totalFeesPaid = BigInt.zero();
+  user.uniquePools = BigInt.zero();
+  user.totalClaims = BigInt.zero();
+  user.firstActivityAt = timestamp;
+  user.lastActivityAt = timestamp;
+  user.save();
+  return user;
+}
+
+/**
+ * Create new user pool state for tracking cumulative amounts per pool
+ */
+function createUserPoolState(
+  userPoolStateId: Bytes,
+  userAddress: Bytes,
+  poolAddress: Bytes,
+  timestamp: BigInt
+): UserPoolState {
+  let userPoolState = new UserPoolState(userPoolStateId);
+  userPoolState.user = userAddress;
+  userPoolState.pool = poolAddress;
+  userPoolState.lastCumulativeAmount = BigInt.zero();
+  userPoolState.totalClaimed = BigInt.zero();
+  userPoolState.totalFeesPaid = BigInt.zero();
+  userPoolState.claimCount = BigInt.zero();
+  userPoolState.firstClaimAt = timestamp;
+  userPoolState.lastClaimAt = timestamp;
+  userPoolState.save();
+  return userPoolState;
+}
 
 /**
  * Handler for Funded event - tracks pool funding
@@ -26,17 +63,11 @@ export function handleFunded(event: Funded): void {
   // Load or create user
   let user = User.load(event.params.funder);
   if (!user) {
-    user = new User(event.params.funder);
-    user.totalClaimed = BigInt.zero();
-    user.totalFeesPaid = BigInt.zero();
-    user.uniquePools = BigInt.zero();
-    user.totalClaims = BigInt.zero();
-    user.firstActivityAt = event.block.timestamp;
-    user.lastActivityAt = event.block.timestamp;
+    user = createUser(event.params.funder, event.block.timestamp);
   } else {
     user.lastActivityAt = event.block.timestamp;
+    user.save();
   }
-  user.save();
 
   // Create funding record
   let fundingId = event.transaction.hash.concatI32(event.logIndex.toI32());
@@ -68,7 +99,7 @@ export function handleFunded(event: Funded): void {
 }
 
 /**
- * Handler for ClaimedMinimal event - tracks reward claims
+ * Handler for ClaimedMinimal event - tracks reward claims with proper cumulative calculation
  */
 export function handleClaimed(event: ClaimedMinimal): void {
   // Load pool
@@ -76,45 +107,61 @@ export function handleClaimed(event: ClaimedMinimal): void {
   if (!pool) {
     return; // Pool should exist
   }
+  
+  // Validate pool token
+  let token = Token.load(pool.token);
+  if (!token || !token.isAllowed) {
+    return; // Skip claims for pools with invalid/disallowed tokens
+  }
 
   // Load or create user
   let user = User.load(event.params.account);
   if (!user) {
-    user = new User(event.params.account);
-    user.totalClaimed = BigInt.zero();
-    user.totalFeesPaid = BigInt.zero();
-    user.uniquePools = BigInt.zero();
-    user.totalClaims = BigInt.zero();
-    user.firstActivityAt = event.block.timestamp;
-    user.lastActivityAt = event.block.timestamp;
+    user = createUser(event.params.account, event.block.timestamp);
   } else {
     user.lastActivityAt = event.block.timestamp;
   }
 
-  // Calculate amounts from cumulative pattern
-  // Note: This is a simplified calculation. In practice, you'd need to track
-  // previous cumulative amounts to calculate the exact gross/fee/net
-  let cumulativeAmount = event.params.cumulativeAmount;
+  // Get or create user pool state for incremental calculation
+  let userPoolStateId = event.params.account.concat(event.address);
+  let userPoolState = UserPoolState.load(userPoolStateId);
+  
+  let isNewPoolForUser = false;
+  if (!userPoolState) {
+    userPoolState = createUserPoolState(userPoolStateId, event.params.account, event.address, event.block.timestamp);
+    isNewPoolForUser = true;
+  }
 
-  // Estimate fee (cumulative * 10%)
-  let cumulativeFee = cumulativeAmount.times(PLATFORM_FEE_BPS).div(BASIS_POINTS);
-  let cumulativeNet = cumulativeAmount.minus(cumulativeFee);
+  // Calculate incremental amounts from cumulative values
+  let newCumulativeAmount = event.params.cumulativeAmount;
+  let previousCumulativeAmount = userPoolState.lastCumulativeAmount;
+  
+  // Validate that cumulative amount is increasing
+  if (newCumulativeAmount.le(previousCumulativeAmount)) {
+    return; // Skip invalid claims where cumulative amount doesn't increase
+  }
+  
+  // Calculate incremental gross amount (what user actually received in this claim)
+  let incrementalGrossAmount = newCumulativeAmount.minus(previousCumulativeAmount);
+  
+  // Calculate incremental fee and net amounts
+  let incrementalFeeAmount = incrementalGrossAmount.times(PLATFORM_FEE_BPS).div(BASIS_POINTS);
+  let incrementalNetAmount = incrementalGrossAmount.minus(incrementalFeeAmount);
+  
+  // Additional validation - ensure positive amounts
+  if (incrementalGrossAmount.le(BigInt.zero()) || incrementalNetAmount.lt(BigInt.zero())) {
+    return; // Skip invalid claims
+  }
 
-  // For this event, we'll record the cumulative amounts
-  // A more sophisticated approach would track previous states
-  let grossAmount = cumulativeAmount; // Simplified - actual would be incremental
-  let feeAmount = cumulativeFee; // Simplified
-  let netAmount = cumulativeNet; // Simplified
-
-  // Create claim record
+  // Create claim record with correct incremental amounts
   let claimId = event.transaction.hash.concatI32(event.logIndex.toI32());
   let claim = new Claim(claimId);
   claim.pool = event.address;
   claim.user = event.params.account;
-  claim.cumulativeAmount = cumulativeAmount;
-  claim.grossAmount = grossAmount;
-  claim.feeAmount = feeAmount;
-  claim.netAmount = netAmount;
+  claim.cumulativeAmount = newCumulativeAmount; // Full cumulative amount from event
+  claim.grossAmount = incrementalGrossAmount; // Actual amount claimed this time
+  claim.feeAmount = incrementalFeeAmount; // Fee on incremental amount
+  claim.netAmount = incrementalNetAmount; // Net incremental amount
   claim.transactionHash = event.transaction.hash;
   claim.blockNumber = event.block.number;
   claim.timestamp = event.block.timestamp;
@@ -122,39 +169,47 @@ export function handleClaimed(event: ClaimedMinimal): void {
   claim.gasPrice = BigInt.zero(); // Not available in subgraph context
   claim.save();
 
-  // Update user statistics
-  let isNewPoolForUser = !userHasClaimedFromPool(event.params.account, event.address);
+  // Update user pool state
+  userPoolState.lastCumulativeAmount = newCumulativeAmount;
+  userPoolState.totalClaimed = userPoolState.totalClaimed.plus(incrementalNetAmount);
+  userPoolState.totalFeesPaid = userPoolState.totalFeesPaid.plus(incrementalFeeAmount);
+  userPoolState.claimCount = userPoolState.claimCount.plus(BigInt.fromI32(1));
+  userPoolState.lastClaimAt = event.block.timestamp;
+  userPoolState.save();
+
+  // Update user global statistics
   if (isNewPoolForUser) {
     user.uniquePools = user.uniquePools.plus(BigInt.fromI32(1));
   }
-  user.totalClaimed = user.totalClaimed.plus(netAmount);
-  user.totalFeesPaid = user.totalFeesPaid.plus(feeAmount);
+  user.totalClaimed = user.totalClaimed.plus(incrementalNetAmount);
+  user.totalFeesPaid = user.totalFeesPaid.plus(incrementalFeeAmount);
   user.totalClaims = user.totalClaims.plus(BigInt.fromI32(1));
   user.save();
 
-  // Update pool statistics
-  pool.totalClaimed = pool.totalClaimed.plus(grossAmount);
-  pool.totalFees = pool.totalFees.plus(feeAmount);
-  pool.totalClaims = pool.totalClaims.plus(BigInt.fromI32(1));
-  if (isNewPoolForUser) {
-    pool.totalUsers = pool.totalUsers.plus(BigInt.fromI32(1));
+  // Update pool statistics with incremental amounts (with validation)
+  if (incrementalGrossAmount.ge(BigInt.zero()) && incrementalFeeAmount.ge(BigInt.zero())) {
+    pool.totalClaimed = pool.totalClaimed.plus(incrementalGrossAmount);
+    pool.totalFees = pool.totalFees.plus(incrementalFeeAmount);
+    pool.totalClaims = pool.totalClaims.plus(BigInt.fromI32(1));
+    if (isNewPoolForUser) {
+      pool.totalUsers = pool.totalUsers.plus(BigInt.fromI32(1));
+    }
+    pool.lastActivityAt = event.block.timestamp;
+    pool.updatedAt = event.block.timestamp;
+    pool.save();
   }
-  pool.lastActivityAt = event.block.timestamp;
-  pool.updatedAt = event.block.timestamp;
-  pool.save();
 
-  // Update token statistics
-  let token = Token.load(pool.token);
+  // Update token statistics (token is already validated above)
   if (token) {
-    token.totalVolume = token.totalVolume.plus(grossAmount);
-    token.totalFees = token.totalFees.plus(feeAmount);
+    token.totalVolume = token.totalVolume.plus(incrementalGrossAmount);
+    token.totalFees = token.totalFees.plus(incrementalFeeAmount);
     token.updatedAt = event.block.timestamp;
     token.save();
   }
 
   // Update global and daily stats
-  updateFactoryStats(grossAmount, feeAmount, isNewPoolForUser);
-  updateDailyStats(event.block.timestamp, grossAmount, BigInt.zero(), BigInt.fromI32(1), false);
+  updateFactoryStats(incrementalGrossAmount, incrementalFeeAmount, isNewPoolForUser, event.block.timestamp);
+  updateDailyStats(event.block.timestamp, incrementalGrossAmount, BigInt.zero(), BigInt.fromI32(1), false);
 }
 
 /**
@@ -178,20 +233,16 @@ export function handleEmergencySweep(event: EmergencySweep): void {
   }
 }
 
-/**
- * Check if user has previously claimed from this pool
- * Note: In a production subgraph, this would be more efficiently implemented
- */
-function userHasClaimedFromPool(userAddress: Bytes, poolAddress: Bytes): boolean {
-  // Simplified implementation - in practice you'd query existing claims
-  // For now, we'll assume it's a new user for each claim (suboptimal but functional)
-  return false;
-}
 
 /**
- * Update global factory statistics
+ * Update global factory statistics with proper validation
  */
-function updateFactoryStats(grossAmount: BigInt, feeAmount: BigInt, isNewUser: boolean): void {
+function updateFactoryStats(grossAmount: BigInt, feeAmount: BigInt, isNewUser: boolean, timestamp: BigInt): void {
+  // Validate input amounts
+  if (grossAmount.lt(BigInt.zero()) || feeAmount.lt(BigInt.zero())) {
+    return; // Skip invalid amounts
+  }
+
   let stats = FactoryStats.load(FACTORY_STATS_ID);
   if (!stats) {
     stats = new FactoryStats(FACTORY_STATS_ID);
@@ -201,9 +252,10 @@ function updateFactoryStats(grossAmount: BigInt, feeAmount: BigInt, isNewUser: b
     stats.totalUsers = BigInt.zero();
     stats.totalClaims = BigInt.zero();
     stats.averagePoolSize = BigInt.zero();
-    stats.updatedAt = BigInt.fromI32(1);
+    stats.updatedAt = timestamp;
   }
 
+  // Update statistics with incremental amounts
   stats.totalVolume = stats.totalVolume.plus(grossAmount);
   stats.totalFees = stats.totalFees.plus(feeAmount);
   stats.totalClaims = stats.totalClaims.plus(BigInt.fromI32(1));
@@ -211,12 +263,12 @@ function updateFactoryStats(grossAmount: BigInt, feeAmount: BigInt, isNewUser: b
     stats.totalUsers = stats.totalUsers.plus(BigInt.fromI32(1));
   }
 
-  // Calculate average pool size
+  // Calculate average pool size (total volume / number of pools)
   if (stats.totalPools.gt(BigInt.zero())) {
     stats.averagePoolSize = stats.totalVolume.div(stats.totalPools);
   }
 
-  stats.updatedAt = BigInt.fromI32(1); // Placeholder timestamp
+  stats.updatedAt = timestamp;
   stats.save();
 }
 

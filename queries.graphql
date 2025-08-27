@@ -5,12 +5,15 @@
 # FACTORY DISCOVERY QUERIES
 # =====================================
 
-# Query all active pools with metadata for search
+# Query all active pools with advanced search functionality
 query GetPoolsForSearch(
   $first: Int = 50,
   $skip: Int = 0,
   $search: String = "",
-  $tokenFilter: [Bytes!] = [],
+  $skills: [String!] = [],
+  $taskTypes: [String!] = [],
+  $tags: [String!] = [],
+  $tokenFilter: [String!] = [],
   $creatorFilter: Bytes = null,
   $minFunding: BigInt = "0"
 ) {
@@ -25,8 +28,11 @@ query GetPoolsForSearch(
         { token_in: $tokenFilter },
         {
           or: [
+            { searchString_contains_nocase: $search },
             { description_contains_nocase: $search },
-            { tags_contains: [$search] }
+            { tags_contains: $tags },
+            { skills_contains: $skills },
+            { taskTypes_contains: $taskTypes }
           ]
         }
       ]
@@ -57,8 +63,9 @@ query GetPoolsForSearch(
     # Search Metadata
     description
     tags
-    skillsHash
-    taskTypeHash
+    skills
+    taskTypes
+    searchString
     # Timestamps
     createdAt
     createdAtBlock
@@ -68,40 +75,127 @@ query GetPoolsForSearch(
 
 # Query pools by specific skills/task types for desktop search
 query GetPoolsBySkills(
-  $skills: [String!]!,
+  $skills: [String!] = [],
   $taskTypes: [String!] = [],
   $first: Int = 20
 ) {
-  poolMetadata(
+  pools(
     first: $first,
     where: {
       and: [
+        { isActive: true },
         { skills_contains: $skills },
-        { taskTypes_contains: $taskTypes },
-        { pool_: { isActive: true } }
+        { taskTypes_contains: $taskTypes }
       ]
     },
-    orderBy: updatedAt,
+    orderBy: lastActivityAt,
+    orderDirection: desc
+  ) {
+    id
+    creator
+    totalFunded
+    totalClaimed
+    totalUsers
+    isActive
+    lastActivityAt
+    token {
+      id
+      symbol
+      decimals
+      name
+    }
+    factory {
+      id
+    }
+    # Metadata
+    skills
+    taskTypes
+    description
+    tags
+    searchString
+    updatedAt
+  }
+}
+
+# Search pools by full-text search string
+query SearchPoolsByText(
+  $searchText: String!,
+  $first: Int = 50,
+  $skip: Int = 0
+) {
+  pools(
+    first: $first,
+    skip: $skip,
+    where: {
+      and: [
+        { isActive: true },
+        { searchString_contains_nocase: $searchText }
+      ]
+    },
+    orderBy: lastActivityAt,
+    orderDirection: desc
+  ) {
+    id
+    creator
+    totalFunded
+    totalClaimed
+    totalUsers
+    isActive
+    lastActivityAt
+    token {
+      id
+      symbol
+      name
+      decimals
+    }
+    description
+    tags
+    searchString
+    createdAt
+    updatedAt
+  }
+}
+
+# Get all unique skills and task types for autocomplete/filtering
+query GetAvailableSkillsAndTaskTypes {
+  pools(
+    first: 1000,
+    where: { isActive: true }
+  ) {
+    skills
+    taskTypes
+    tags
+  }
+}
+
+# Get pools with metadata updates for tracking changes
+query GetPoolMetadataUpdates(
+  $poolId: String = null,
+  $first: Int = 50,
+  $skip: Int = 0
+) {
+  poolMetadataUpdates(
+    first: $first,
+    skip: $skip,
+    where: {
+      pool: $poolId
+    },
+    orderBy: timestamp,
     orderDirection: desc
   ) {
     id
     pool {
       id
       creator
-      token {
-        symbol
-        name
-        decimals
-      }
-      totalFunded
-      totalUsers
-      lastActivityAt
     }
+    updater
     skills
     taskTypes
     description
     tags
     searchString
+    timestamp
+    blockNumber
   }
 }
 
@@ -123,13 +217,6 @@ query GetFactoryOverview {
     publisher
     oldPublisher
     graceEndTime
-    allowedTokens {
-      symbol
-      name
-      isAllowed
-      totalPools
-      totalVolume
-    }
   }
 }
 
@@ -138,7 +225,7 @@ query GetFactoryOverview {
 # =====================================
 
 # Detailed pool analytics for desktop factory management
-query GetPoolDetails($poolId: Bytes!) {
+query GetPoolDetails($poolId: ID!) {
   pool(id: $poolId) {
     id
     creator
@@ -199,14 +286,15 @@ query GetPoolDetails($poolId: Bytes!) {
     # Metadata
     description
     tags
-    skillsHash
-    taskTypeHash
+    skills
+    taskTypes
+    searchString
   }
 }
 
 # User claim history for farmer dashboard
 query GetUserClaimHistory(
-  $userAddress: Bytes!,
+  $userAddress: ID!,
   $first: Int = 50,
   $skip: Int = 0
 ) {
@@ -345,20 +433,6 @@ query GetTokenAnalytics {
     totalPools
     totalVolume
     totalFees
-    
-    # Top pools by volume
-    pools(
-      first: 5,
-      orderBy: totalFunded,
-      orderDirection: desc
-    ) {
-      id
-      creator
-      totalFunded
-      totalClaimed
-      totalUsers
-      lastActivityAt
-    }
   }
 }
 
@@ -368,7 +442,7 @@ query GetTokenAnalytics {
 
 # Publisher rotation history for governance monitoring
 query GetPublisherRotations(
-  $factoryAddress: Bytes!,
+  $factoryAddress: String!,
   $first: Int = 20
 ) {
   publisherRotations(
@@ -399,7 +473,7 @@ query GetPublisherRotations(
 # Optimized search for desktop factory browser
 query SearchFactoriesDesktop(
   $searchText: String!,
-  $tokenAddress: Bytes = null,
+  $tokenAddress: String = null,
   $minActivity: BigInt = "0",
   $limit: Int = 25
 ) {

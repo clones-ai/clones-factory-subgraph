@@ -1,25 +1,24 @@
 {
   "name": "clones-factory-subgraph",
-  "version": "0.0.7",
+  "version": "0.0.12",
   "description": "The Graph subgraph for Clones Factory system",
   "scripts": {
-    "codegen": "graph codegen",
+    "codegen": "dotenv -e .env -- graphql-codegen --config codegen.yml",
     "build": "graph build",
     "deploy": "graph deploy",
-    "create-local": "graph create --node http://localhost:8020/ clones/factory",
-    "remove-local": "graph remove --node http://localhost:8020/ clones/factory",
-    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 clones/factory",
     "test-queries": "node scripts/test-queries.js"
   },
   "dependencies": {
-    "dotenv": "^16.4.5",
     "@graphprotocol/graph-cli": "0.97.1",
     "@graphprotocol/graph-ts": "0.35.1",
-    "graphql": "^16.11.0",
-    "graphql-request": "^7.2.0",
-    "ipfs-http-client": "^60.0.1"
+    "dotenv": "^16.4.5",
+    "graphql-request": "^7.2.0"
   },
   "devDependencies": {
+    "@graphql-codegen/cli": "^5.0.7",
+    "@graphql-codegen/typescript": "^4.1.6",
+    "dotenv-cli": "^10.0.0",
+    "graphql": "^16.11.0",
     "typescript": "^5.0.0"
   }
 }

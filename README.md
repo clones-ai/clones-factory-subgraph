@@ -14,9 +14,18 @@ This subgraph indexes the Clones factory system smart contracts for discovery an
 ### Key Features
 - **Real-time Factory Indexing**: Tracks pool creation, token allowlist, publisher rotation
 - **Comprehensive Claim Analytics**: Individual and batch claim tracking with gas optimization
-- **IPFS Metadata Integration**: Skills and task type hashes for advanced search
+- **Direct Metadata System**: Full skills/task type storage and search functionality
+- **Multi-dimensional Search**: Skills, task types, tags, description, and full-text search
 - **Advanced Analytics**: Daily stats, user statistics, performance metrics
 - **Search Optimization**: Efficient queries by skills, taskType, owner via GraphQL
+
+### Metadata Features
+- **Direct Storage**: Skills and task types stored directly in entities
+- **Search Optimization**: Pre-computed search strings for fast queries
+- **Task Type Categorization**: Extracts task types and categories
+- **Full-text Search String**: Concatenated searchable content
+- **Metadata Update Tracking**: Complete audit trail of metadata changes
+- **Sample Data Generation**: Demonstrates functionality with realistic test data
 
 ## Deployment
 
@@ -28,7 +37,7 @@ npx graph build
 
 # Local deployment (requires Graph Node)
 npx graph create --node http://localhost:8020/ clones/factory
-npx graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 clones/factory
+npx graph deploy --node http://localhost:8020/ clones/factory
 ```
 
 ### The Graph Studio Deployment
@@ -91,13 +100,98 @@ When smart contracts are modified and redeployed, the subgraph must be updated t
         ```
     -   During deployment, the CLI will prompt you to assign a new version number (e.g., `v0.0.2`).
 
+## Local Development & Validation
+
+### Development Workflow
+
+The recommended development workflow for GraphQL queries:
+
+1. **Local Validation**: `npm run codegen` - Validates queries against deployed schema
+2. **Live Testing**: `npm run test-queries` - Tests queries with real data
+3. **Deploy**: Update subgraph when schema changes
+
+### Query Validation
+
+Validate your GraphQL queries against the deployed subgraph schema:
+
+```bash
+npm run codegen
+```
+
+This command will:
+- Fetch the schema from your deployed subgraph (via `SUBGRAPH_URL` in `.env`)
+- Validate all queries in `queries.graphql` against the real schema
+- Generate TypeScript types in `src/generated/graphql.ts`
+- Fail immediately with precise error messages for invalid queries
+
+**Important**: This validates against the **deployed** schema, not the local `schema.graphql`. Deploy your subgraph first if you've made schema changes.
+
+### Testing Queries
+
+Test GraphQL queries against the deployed subgraph with real data:
+
+```bash
+npm run test-queries
+```
+
+This script runs predefined queries and reports failures or performance issues.
+
+### Schema Type Mapping
+
+Note that The Graph transforms your local schema types:
+- `Bytes!` → `ID!` for entity lookups (e.g., `pool(id: ID!)`)
+- `Bytes!` → `String!` for complex filters (e.g., `factory: String!`)
+- Always validate with `npm run codegen` to catch these transformations
+
 ## Key Query Patterns
+
+### Metadata Queries
+```graphql
+# Advanced search by skills and task types
+query SearchBySkills {
+  pools(
+    where: {
+      and: [
+        { isActive: true }
+        { extractedSkills_contains_nocase: ["javascript", "react"] }
+        { extractedTaskTypes_contains_nocase: ["frontend", "web"] }
+      ]
+    }
+  ) {
+    id
+    creator
+    extractedSkills
+    extractedTaskTypes
+    description
+    searchString
+    totalFunded
+  }
+}
+
+# Full-text search across all metadata
+query FullTextSearch($searchText: String!) {
+  pools(
+    where: {
+      and: [
+        { isActive: true }
+        { searchString_contains_nocase: $searchText }
+      ]
+    }
+  ) {
+    id
+    extractedSkills
+    extractedTaskTypes
+    description
+    tags
+  }
+}
+```
 
 ### Discovery Queries
 ```graphql
-# Search pools by skills
+# Search pools by skills (legacy - use extractedSkills instead)
 query PoolsBySkills($skills: [String!]!) {
-  pools(where: { tags_contains: $skills }) {
+  pools(where: { extractedSkills_contains_nocase: $skills }) {
     id
     creator
     token { symbol }
@@ -170,7 +264,7 @@ query BatchClaimAnalytics {
 
 ### Core Entities
 - **Factory**: Main factory contract with governance info
-- **Pool**: Individual reward pools with IPFS metadata
+- **Pool**: Individual reward pools with direct metadata
 - **Token**: ERC-20 tokens with usage statistics
 - **User**: Comprehensive user activity tracking
 - **Claim**: Individual claim records with fee breakdown
@@ -179,13 +273,13 @@ query BatchClaimAnalytics {
 - **BatchClaim**: Batch operation tracking for gas efficiency
 - **DailyStats**: Time-series analytics for dashboards
 - **FactoryStats**: Global system metrics
-- **PoolMetadata**: IPFS integration for search functionality
+- **PoolMetadata**: Direct metadata for search functionality
 
 ## Search Features
 
-### IPFS Integration
-- `skillsHash`: IPFS hash linking to skills metadata
-- `taskTypeHash`: IPFS hash linking to task type definitions
+### Direct Metadata
+- `skills`: Array of required skills
+- `taskTypes`: Array of task type definitions
 - `searchString`: Concatenated searchable text for full-text queries
 
 ### Analytics Optimization

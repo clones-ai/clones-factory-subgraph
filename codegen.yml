@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://www.graphql-code-generator.com/config.schema.json
+overwrite: true
+schema: "${SUBGRAPH_URL}"
+documents: "queries.graphql"
+generates:
+  src/generated/graphql.ts:
+    plugins:
+      - "typescript"
+    config:
+      scalars:
+        Bytes: string
+        BigInt: string

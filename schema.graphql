@@ -9,8 +9,7 @@ type Factory @entity(immutable: false) {
   oldPublisher: Bytes # Previous publisher during rotation
   graceEndTime: BigInt # Grace period end time for old publisher
   totalPools: BigInt! # Total number of pools created
-  allowedTokens: [Token!]! @derivedFrom(field: "factory") # Allowed tokens
-  pools: [Pool!]! @derivedFrom(field: "factory") # All pools created by this factory
+  isInitialized: Boolean! # Whether factory has been properly initialized
   createdAt: BigInt! # Block timestamp
   createdAtBlock: BigInt! # Block number
 }
@@ -33,11 +32,12 @@ type Pool @entity(immutable: false) {
   isActive: Boolean! # Whether pool is active
   lastActivityAt: BigInt! # Last claim timestamp
   
-  # IPFS Metadata for Search
-  skillsHash: String # IPFS hash for skills metadata
-  taskTypeHash: String # IPFS hash for task type metadata
-  description: String # Pool description
-  tags: [String!] # Searchable tags
+  # Pool Metadata
+  skills: [String!]!
+  taskTypes: [String!]!
+  description: String
+  tags: [String!]!
+  searchString: String
   
   # Relations
   fundings: [Funding!]! @derivedFrom(field: "pool")
@@ -51,7 +51,6 @@ type Pool @entity(immutable: false) {
 
 type Token @entity(immutable: false) {
   id: Bytes! # Token contract address
-  factory: Factory! # Factory that allows this token
   symbol: String! # Token symbol (USDC, WETH, etc)
   name: String! # Token name
   decimals: Int! # Token decimals
@@ -61,9 +60,6 @@ type Token @entity(immutable: false) {
   totalPools: BigInt! # Number of pools using this token
   totalVolume: BigInt! # Total volume across all pools
   totalFees: BigInt! # Total fees collected in this token
-  
-  # Relations
-  pools: [Pool!]! @derivedFrom(field: "token")
   
   # Timestamps
   createdAt: BigInt!
@@ -81,10 +77,26 @@ type User @entity(immutable: false) {
   # Relations
   claims: [Claim!]! @derivedFrom(field: "user")
   fundings: [Funding!]! @derivedFrom(field: "funder")
+  poolStates: [UserPoolState!]! @derivedFrom(field: "user")
   
   # Timestamps
   firstActivityAt: BigInt!
   lastActivityAt: BigInt!
+}
+
+# Tracks user's cumulative state per pool for proper incremental calculations
+type UserPoolState @entity(immutable: false) {
+  id: Bytes! # user address + pool address
+  user: User! # User reference
+  pool: Pool! # Pool reference
+  lastCumulativeAmount: BigInt! # Last recorded cumulative amount
+  totalClaimed: BigInt! # Total incremental amount claimed from this pool
+  totalFeesPaid: BigInt! # Total fees paid on this pool
+  claimCount: BigInt! # Number of claims from this pool
+  
+  # Timestamps
+  firstClaimAt: BigInt!
+  lastClaimAt: BigInt!
 }
 
 type Claim @entity(immutable: true) {
@@ -100,8 +112,8 @@ type Claim @entity(immutable: true) {
   transactionHash: Bytes!
   blockNumber: BigInt!
   timestamp: BigInt!
-  gasUsed: BigInt # Gas used for this claim
-  gasPrice: BigInt # Gas price paid
+  gasUsed: BigInt! # Gas used for this claim
+  gasPrice: BigInt! # Gas price paid
 }
 
 type Funding @entity(immutable: true) {
@@ -127,9 +139,9 @@ type BatchClaim @entity(immutable: true) {
   totalNet: BigInt! # Total net amount
   
   # Gas Analytics
-  gasUsed: BigInt # Total gas used
-  gasPrice: BigInt # Gas price
-  gasCost: BigInt # Total gas cost in wei
+  gasUsed: BigInt! # Total gas used
+  gasPrice: BigInt! # Gas price
+  gasCost: BigInt! # Total gas cost in wei
   
   # Relations
   successes: [ClaimSuccess!]! @derivedFrom(field: "batchClaim")
@@ -209,19 +221,16 @@ type DailyStatistic @entity(immutable: false) {
   averageClaimCost: BigInt!
 }
 
-# IPFS Metadata for Search
-type PoolMetadata @entity(immutable: false) {
-  id: Bytes! # Pool address
-  pool: Pool! # Reference to pool
-  skillsHash: String # IPFS hash for skills
-  taskTypeHash: String # IPFS hash for task types
-  skills: [String!] # Extracted skills for search
-  taskTypes: [String!] # Extracted task types for search
-  description: String # Pool description
-  tags: [String!] # Searchable tags
-  
-  # Indexing
-  searchString: String! # Concatenated searchable text
-  
-  updatedAt: BigInt!
+# Pool Metadata Management
+type PoolMetadataUpdate @entity(immutable: true) {
+  id: Bytes!
+  pool: Pool!
+  updater: Bytes!
+  skills: [String!]!
+  taskTypes: [String!]!
+  description: String
+  tags: [String!]!
+  searchString: String!
+  timestamp: BigInt!
+  blockNumber: BigInt!
 }

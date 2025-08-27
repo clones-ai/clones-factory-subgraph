@@ -3,6 +3,7 @@ indexerHints:
   prune: auto
 schema:
   file: ./schema.graphql
+features: []
 dataSources:
   # RewardPoolFactory - Main factory for creating pools
   - kind: ethereum
@@ -24,6 +25,8 @@ dataSources:
       abis:
         - name: RewardPoolFactory
           file: ./abis/RewardPoolFactory.json
+        - name: ERC20
+          file: ./abis/ERC20.json
       eventHandlers:
         - event: PoolCreated(indexed address,indexed address,indexed address,bytes32,uint256)
           handler: handlePoolCreated
@@ -54,6 +57,8 @@ dataSources:
       abis:
         - name: ClaimRouter
           file: ./abis/ClaimRouter.json
+        - name: ERC20
+          file: ./abis/ERC20.json
       eventHandlers:
         - event: BatchClaimed(indexed address,uint256,uint256,uint256,uint256,uint256,uint256)
           handler: handleBatchClaimed
@@ -83,6 +88,8 @@ templates:
       abis:
         - name: RewardPoolImplementation
           file: ./abis/RewardPoolImplementation.json
+        - name: ERC20
+          file: ./abis/ERC20.json
       eventHandlers:
         - event: Funded(indexed address,indexed address,uint256)
           handler: handleFunded
