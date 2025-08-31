@@ -10,9 +10,9 @@ dataSources:
     name: RewardPoolFactory
     network: base-sepolia
     source:
-      address: "0x85Eb0b152494D403f0C3e2e046744BE9A4599ca2"
+      address: "0x57895ebA2752adf2Cb492713C5BC5B12Fc6c834e"
       abi: RewardPoolFactory
-      startBlock: 30223342
+      startBlock: 30437600
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -30,9 +30,11 @@ dataSources:
       eventHandlers:
         - event: PoolCreated(indexed address,indexed address,indexed address,bytes32,uint256)
           handler: handlePoolCreated
-        - event: TokenAllowedUpdated(indexed address,bool)
+        - event: PoolCreatedAndFunded(indexed address,indexed address,indexed address,bytes32,uint256,uint256)
+          handler: handlePoolCreatedAndFunded
+        - event: TokenAllowedUpdated(indexed address,indexed bool)
           handler: handleTokenAllowedUpdated
-        - event: PublisherRotationInitiated(indexed address,indexed address,uint256)
+        - event: PublisherRotationInitiated(indexed address,indexed address,indexed uint256)
           handler: handlePublisherRotationInitiated
         - event: PublisherRotationCancelled(indexed address,indexed address)
           handler: handlePublisherRotationCancelled
@@ -43,9 +45,9 @@ dataSources:
     name: ClaimRouter
     network: base-sepolia
     source:
-      address: "0xC14f53F92778F17268730F55ffeAB3ac51e38cf9"
+      address: "0xd09386Bad9Cf557f8885Accbef9B204F49c06907"
       abi: ClaimRouter
-      startBlock: 30223342
+      startBlock: 30437600
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -60,14 +62,16 @@ dataSources:
         - name: ERC20
           file: ./abis/ERC20.json
       eventHandlers:
-        - event: BatchClaimed(indexed address,uint256,uint256,uint256,uint256,uint256,uint256)
+        - event: BatchClaimed(indexed address,indexed uint256,indexed uint256,uint256,uint256,uint256,uint256)
           handler: handleBatchClaimed
         - event: ClaimSucceeded(indexed address,indexed address,indexed address,uint256,uint256,uint256)
           handler: handleClaimSucceeded
         - event: ClaimFailed(indexed address,indexed address,string)
           handler: handleClaimFailed
-        - event: FactoryApprovalUpdated(indexed address,bool)
+        - event: FactoryApprovalUpdated(indexed address,indexed bool)
           handler: handleFactoryApprovalUpdated
+        - event: MaxBatchSizeUpdated(indexed uint256,indexed uint256)
+          handler: handleMaxBatchSizeUpdated
       file: ./src/claim-router.ts
 
 # Template for dynamically created vault contracts
@@ -91,12 +95,14 @@ templates:
         - name: ERC20
           file: ./abis/ERC20.json
       eventHandlers:
-        - event: Funded(indexed address,indexed address,uint256)
+        - event: Funded(indexed address,indexed address,indexed uint256)
           handler: handleFunded
-        - event: ClaimedMinimal(indexed address,indexed address,uint256)
+        - event: ClaimedMinimal(indexed address,indexed address,indexed uint256)
           handler: handleClaimed
         - event: PlatformTreasuryUpdated(indexed address,indexed address)
           handler: handlePlatformTreasuryUpdated
-        - event: EmergencySweep(indexed address,uint256)
+        - event: EmergencySweep(indexed address,indexed uint256)
           handler: handleEmergencySweep
+        - event: EmergencySweepNoticeInitiated(indexed address,string,indexed uint256)
+          handler: handleEmergencySweepNoticeInitiated
       file: ./src/vault.ts

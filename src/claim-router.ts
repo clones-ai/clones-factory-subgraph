@@ -2,7 +2,8 @@ import {
   BatchClaimed,
   ClaimSucceeded,
   ClaimFailed,
-  FactoryApprovalUpdated
+  FactoryApprovalUpdated,
+  MaxBatchSizeUpdated
 } from "../generated/ClaimRouter/ClaimRouter";
 
 import {
@@ -128,4 +129,12 @@ function updateDailyStats(
   stats.averageClaimCost = gasUsed.times(gasPrice); // Simplified
 
   stats.save();
+}
+
+/**
+ * Handler for MaxBatchSizeUpdated event
+ */
+export function handleMaxBatchSizeUpdated(event: MaxBatchSizeUpdated): void {
+  // Track batch size configuration changes
+  // For now, just track the event without creating entities
 }

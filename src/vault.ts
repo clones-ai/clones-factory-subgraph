@@ -2,7 +2,8 @@ import {
   Funded,
   ClaimedMinimal,
   PlatformTreasuryUpdated,
-  EmergencySweep
+  EmergencySweep,
+  EmergencySweepNoticeInitiated
 } from "../generated/templates/RewardPoolVault/RewardPoolImplementation";
 
 import { Pool, User, Claim, Funding, Token, FactoryStats, DailyStatistic, UserPoolState } from "../generated/schema";
@@ -309,4 +310,12 @@ function updateDailyStats(
   }
 
   stats.save();
+}
+
+/**
+ * Handler for EmergencySweepNoticeInitiated event
+ */
+export function handleEmergencySweepNoticeInitiated(event: EmergencySweepNoticeInitiated): void {
+  // Track emergency sweep notice for monitoring
+  // For now, just track the event without creating entities
 }

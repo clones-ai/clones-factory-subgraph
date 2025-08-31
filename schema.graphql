@@ -34,9 +34,7 @@ type Pool @entity(immutable: false) {
   
   # Pool Metadata
   skills: [String!]!
-  taskTypes: [String!]!
   description: String
-  tags: [String!]!
   searchString: String
   
   # Relations
@@ -227,9 +225,7 @@ type PoolMetadataUpdate @entity(immutable: true) {
   pool: Pool!
   updater: Bytes!
   skills: [String!]!
-  taskTypes: [String!]!
   description: String
-  tags: [String!]!
   searchString: String!
   timestamp: BigInt!
   blockNumber: BigInt!

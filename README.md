@@ -15,7 +15,7 @@ This subgraph indexes the Clones factory system smart contracts for discovery an
 - **Real-time Factory Indexing**: Tracks pool creation, token allowlist, publisher rotation
 - **Comprehensive Claim Analytics**: Individual and batch claim tracking with gas optimization
 - **Direct Metadata System**: Full skills/task type storage and search functionality
-- **Multi-dimensional Search**: Skills, task types, tags, description, and full-text search
+- **Multi-dimensional Search**: Skills, description, and full-text search
 - **Advanced Analytics**: Daily stats, user statistics, performance metrics
 - **Search Optimization**: Efficient queries by skills, taskType, owner via GraphQL
 
@@ -154,14 +154,12 @@ query SearchBySkills {
       and: [
         { isActive: true }
         { extractedSkills_contains_nocase: ["javascript", "react"] }
-        { extractedTaskTypes_contains_nocase: ["frontend", "web"] }
       ]
     }
   ) {
     id
     creator
     extractedSkills
-    extractedTaskTypes
     description
     searchString
     totalFunded
@@ -180,9 +178,7 @@ query FullTextSearch($searchText: String!) {
   ) {
     id
     extractedSkills
-    extractedTaskTypes
     description
-    tags
   }
 }
 ```
@@ -279,7 +275,6 @@ query BatchClaimAnalytics {
 
 ### Direct Metadata
 - `skills`: Array of required skills
-- `taskTypes`: Array of task type definitions
 - `searchString`: Concatenated searchable text for full-text queries
 
 ### Analytics Optimization

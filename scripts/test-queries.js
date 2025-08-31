@@ -64,7 +64,6 @@ const TEST_QUERIES = {
         isActive
         lastActivityAt
         description
-        tags
       }
     }
   `,

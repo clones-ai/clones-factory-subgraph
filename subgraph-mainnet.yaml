@@ -27,9 +27,11 @@ dataSources:
       eventHandlers:
         - event: PoolCreated(indexed address,indexed address,indexed address,bytes32,uint256)
           handler: handlePoolCreated
-        - event: TokenAllowedUpdated(indexed address,bool)
+        - event: PoolCreatedAndFunded(indexed address,indexed address,indexed address,bytes32,uint256,uint256)
+          handler: handlePoolCreatedAndFunded
+        - event: TokenAllowedUpdated(indexed address,indexed bool)
           handler: handleTokenAllowedUpdated
-        - event: PublisherRotationInitiated(indexed address,indexed address,uint256)
+        - event: PublisherRotationInitiated(indexed address,indexed address,indexed uint256)
           handler: handlePublisherRotationInitiated
         - event: PublisherRotationCancelled(indexed address,indexed address)
           handler: handlePublisherRotationCancelled
@@ -55,14 +57,16 @@ dataSources:
         - name: ClaimRouter
           file: ./abis/ClaimRouter.json
       eventHandlers:
-        - event: BatchClaimed(indexed address,uint256,uint256,uint256,uint256,uint256,uint256)
+        - event: BatchClaimed(indexed address,indexed uint256,indexed uint256,uint256,uint256,uint256,uint256)
           handler: handleBatchClaimed
         - event: ClaimSucceeded(indexed address,indexed address,indexed address,uint256,uint256,uint256)
           handler: handleClaimSucceeded
         - event: ClaimFailed(indexed address,indexed address,string)
           handler: handleClaimFailed
-        - event: FactoryApprovalUpdated(indexed address,bool)
+        - event: FactoryApprovalUpdated(indexed address,indexed bool)
           handler: handleFactoryApprovalUpdated
+        - event: MaxBatchSizeUpdated(indexed uint256,indexed uint256)
+          handler: handleMaxBatchSizeUpdated
       file: ./src/claim-router.ts
 
 # Template for dynamically created vault contracts on Base Mainnet
@@ -84,12 +88,14 @@ templates:
         - name: RewardPoolImplementation
           file: ./abis/RewardPoolImplementation.json
       eventHandlers:
-        - event: Funded(indexed address,indexed address,uint256)
+        - event: Funded(indexed address,indexed address,indexed uint256)
           handler: handleFunded
-        - event: ClaimedMinimal(indexed address,indexed address,uint256)
+        - event: ClaimedMinimal(indexed address,indexed address,indexed uint256)
           handler: handleClaimed
         - event: PlatformTreasuryUpdated(indexed address,indexed address)
           handler: handlePlatformTreasuryUpdated
-        - event: EmergencySweep(indexed address,uint256)
+        - event: EmergencySweep(indexed address,indexed uint256)
           handler: handleEmergencySweep
+        - event: EmergencySweepNoticeInitiated(indexed address,string,indexed uint256)
+          handler: handleEmergencySweepNoticeInitiated
       file: ./src/vault.ts

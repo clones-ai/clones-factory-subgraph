@@ -11,8 +11,6 @@ query GetPoolsForSearch(
   $skip: Int = 0,
   $search: String = "",
   $skills: [String!] = [],
-  $taskTypes: [String!] = [],
-  $tags: [String!] = [],
   $tokenFilter: [String!] = [],
   $creatorFilter: Bytes = null,
   $minFunding: BigInt = "0"
@@ -30,9 +28,7 @@ query GetPoolsForSearch(
           or: [
             { searchString_contains_nocase: $search },
             { description_contains_nocase: $search },
-            { tags_contains: $tags },
             { skills_contains: $skills },
-            { taskTypes_contains: $taskTypes }
           ]
         }
       ]
@@ -62,9 +58,7 @@ query GetPoolsForSearch(
     lastActivityAt
     # Search Metadata
     description
-    tags
     skills
-    taskTypes
     searchString
     # Timestamps
     createdAt
@@ -76,7 +70,6 @@ query GetPoolsForSearch(
 # Query pools by specific skills/task types for desktop search
 query GetPoolsBySkills(
   $skills: [String!] = [],
-  $taskTypes: [String!] = [],
   $first: Int = 20
 ) {
   pools(
@@ -85,7 +78,6 @@ query GetPoolsBySkills(
       and: [
         { isActive: true },
         { skills_contains: $skills },
-        { taskTypes_contains: $taskTypes }
       ]
     },
     orderBy: lastActivityAt,
@@ -109,9 +101,7 @@ query GetPoolsBySkills(
     }
     # Metadata
     skills
-    taskTypes
     description
-    tags
     searchString
     updatedAt
   }
@@ -149,22 +139,19 @@ query SearchPoolsByText(
       decimals
     }
     description
-    tags
     searchString
     createdAt
     updatedAt
   }
 }
 
-# Get all unique skills and task types for autocomplete/filtering
-query GetAvailableSkillsAndTaskTypes {
+# Get all unique skills for autocomplete/filtering
+query GetAvailableSkills {
   pools(
     first: 1000,
     where: { isActive: true }
   ) {
     skills
-    taskTypes
-    tags
   }
 }
 
@@ -190,9 +177,7 @@ query GetPoolMetadataUpdates(
     }
     updater
     skills
-    taskTypes
     description
-    tags
     searchString
     timestamp
     blockNumber
@@ -284,10 +269,8 @@ query GetPoolDetails($poolId: ID!) {
     }
     
     # Metadata
-    description
-    tags
+    description 
     skills
-    taskTypes
     searchString
   }
 }
@@ -486,8 +469,7 @@ query SearchFactoriesDesktop(
         { token: $tokenAddress },
         {
           or: [
-            { description_contains_nocase: $searchText },
-            { tags_contains: [$searchText] }
+            { description_contains_nocase: $searchText }
           ]
         }
       ]
@@ -506,7 +488,6 @@ query SearchFactoriesDesktop(
     totalUsers
     lastActivityAt
     description
-    tags
     # Minimal data for fast loading
   }
 }

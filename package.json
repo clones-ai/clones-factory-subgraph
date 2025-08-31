@@ -1,6 +1,6 @@
 {
   "name": "clones-factory-subgraph",
-  "version": "0.0.12",
+  "version": "0.0.15",
   "description": "The Graph subgraph for Clones Factory system",
   "scripts": {
     "codegen": "dotenv -e .env -- graphql-codegen --config codegen.yml",
