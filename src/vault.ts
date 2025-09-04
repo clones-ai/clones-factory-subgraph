@@ -1,5 +1,6 @@
 import {
   Funded,
+  Withdrawn,
   ClaimedMinimal,
   PlatformTreasuryUpdated,
   EmergencySweep,
@@ -97,6 +98,54 @@ export function handleFunded(event: Funded): void {
 
   // Update daily stats
   updateDailyStats(event.block.timestamp, BigInt.zero(), event.params.amount, BigInt.zero(), false);
+}
+
+/**
+ * Handler for Withdrawn event - tracks creator withdrawals
+ */
+export function handleWithdrawn(event: Withdrawn): void {
+  // Load pool
+  let pool = Pool.load(event.address);
+  if (!pool) {
+    return; // Pool should exist from PoolCreated event
+  }
+
+  // Load or create user (creator)
+  let user = User.load(event.params.creator);
+  if (!user) {
+    user = createUser(event.params.creator, event.block.timestamp);
+  } else {
+    user.lastActivityAt = event.block.timestamp;
+    user.save();
+  }
+
+  // Create withdrawal record (reuse Funding entity for simplicity)
+  let withdrawalId = event.transaction.hash.concatI32(event.logIndex.toI32());
+  let withdrawal = new Funding(withdrawalId);
+  withdrawal.pool = event.address;
+  withdrawal.funder = event.params.creator;
+  withdrawal.amount = event.params.amount.neg(); // Negative amount to indicate withdrawal
+  withdrawal.transactionHash = event.transaction.hash;
+  withdrawal.blockNumber = event.block.number;
+  withdrawal.timestamp = event.block.timestamp;
+  withdrawal.save();
+
+  // Update pool statistics - subtract withdrawn amount from funded total
+  pool.totalFunded = pool.totalFunded.minus(event.params.amount);
+  pool.lastActivityAt = event.block.timestamp;
+  pool.updatedAt = event.block.timestamp;
+  pool.save();
+
+  // Update token statistics
+  let token = Token.load(pool.token);
+  if (token) {
+    token.totalVolume = token.totalVolume.plus(event.params.amount); // Still count as volume
+    token.updatedAt = event.block.timestamp;
+    token.save();
+  }
+
+  // Update daily stats - withdrawal counts as negative funding
+  updateDailyStats(event.block.timestamp, BigInt.zero(), event.params.amount.neg(), BigInt.zero(), false);
 }
 
 /**
