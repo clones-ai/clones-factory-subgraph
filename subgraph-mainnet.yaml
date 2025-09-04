@@ -90,6 +90,8 @@ templates:
       eventHandlers:
         - event: Funded(indexed address,indexed address,indexed uint256)
           handler: handleFunded
+        - event: Withdrawn(indexed address,indexed address,indexed uint256)
+          handler: handleWithdrawn
         - event: ClaimedMinimal(indexed address,indexed address,indexed uint256)
           handler: handleClaimed
         - event: PlatformTreasuryUpdated(indexed address,indexed address)
