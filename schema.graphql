@@ -39,6 +39,7 @@ type Pool @entity(immutable: false) {
   
   # Relations
   fundings: [Funding!]! @derivedFrom(field: "pool")
+  withdrawals: [Withdrawal!]! @derivedFrom(field: "pool")
   claims: [Claim!]! @derivedFrom(field: "pool")
   
   # Timestamps
@@ -75,6 +76,7 @@ type User @entity(immutable: false) {
   # Relations
   claims: [Claim!]! @derivedFrom(field: "user")
   fundings: [Funding!]! @derivedFrom(field: "funder")
+  withdrawals: [Withdrawal!]! @derivedFrom(field: "creator")
   poolStates: [UserPoolState!]! @derivedFrom(field: "user")
   
   # Timestamps
@@ -119,6 +121,18 @@ type Funding @entity(immutable: true) {
   pool: Pool! # Pool funded
   funder: User! # Who funded the pool
   amount: BigInt! # Amount funded
+  
+  # Transaction Info
+  transactionHash: Bytes!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+type Withdrawal @entity(immutable: true) {
+  id: Bytes! # Transaction hash + log index
+  pool: Pool! # Pool withdrawn from
+  creator: User! # Pool creator who withdrew funds
+  amount: BigInt! # Amount withdrawn
   
   # Transaction Info
   transactionHash: Bytes!
