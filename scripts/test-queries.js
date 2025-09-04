@@ -143,6 +143,100 @@ const TEST_QUERIES = {
     }
   `,
 
+  // Withdrawals test
+  withdrawals: `
+    query GetWithdrawals($first: Int = 10) {
+      withdrawals(
+        first: $first,
+        orderBy: timestamp,
+        orderDirection: desc
+      ) {
+        id
+        pool {
+          id
+          creator
+          totalFunded
+        }
+        creator {
+          id
+        }
+        amount
+        transactionHash
+        blockNumber
+        timestamp
+      }
+    }
+  `,
+
+  // Pool with funding and withdrawals
+  poolFundingHistory: `
+    query GetPoolFundingHistory($poolId: Bytes!) {
+      pool(id: $poolId) {
+        id
+        creator
+        totalFunded
+        
+        fundings(orderBy: timestamp, orderDirection: desc) {
+          id
+          funder {
+            id
+          }
+          amount
+          timestamp
+        }
+        
+        withdrawals(orderBy: timestamp, orderDirection: desc) {
+          id
+          creator {
+            id
+          }
+          amount
+          timestamp
+        }
+      }
+    }
+  `,
+
+  // User activity including withdrawals
+  userActivity: `
+    query GetUserActivity($userId: Bytes!) {
+      user(id: $userId) {
+        id
+        totalClaimed
+        totalFeesPaid
+        uniquePools
+        totalClaims
+        
+        fundings(first: 5, orderBy: timestamp, orderDirection: desc) {
+          id
+          pool {
+            id
+          }
+          amount
+          timestamp
+        }
+        
+        withdrawals(first: 5, orderBy: timestamp, orderDirection: desc) {
+          id
+          pool {
+            id
+          }
+          amount
+          timestamp
+        }
+        
+        claims(first: 5, orderBy: timestamp, orderDirection: desc) {
+          id
+          pool {
+            id
+          }
+          netAmount
+          timestamp
+        }
+      }
+    }
+  `,
+
   // Health check
   healthCheck: `
     query HealthCheck {
@@ -201,6 +295,48 @@ async function runTests() {
     first: 3
   }));
 
+  // Test withdrawals
+  // NOTE: These tests will fail until the subgraph is redeployed with the new Withdrawal entity
+  results.push(await testQuery('Withdrawals', TEST_QUERIES.withdrawals, {
+    first: 5
+  }));
+
+  // Test pool funding history (will use first available pool if any)
+  // NOTE: This test will fail until the subgraph is redeployed with the new Withdrawal entity
+  try {
+    const poolsData = await client.request(TEST_QUERIES.poolSearch, { first: 1 });
+    if (poolsData.pools && poolsData.pools.length > 0) {
+      results.push(await testQuery('Pool Funding History', TEST_QUERIES.poolFundingHistory, {
+        poolId: poolsData.pools[0].id
+      }));
+    } else {
+      console.log('⚠️  Skipping Pool Funding History test - no pools found');
+    }
+  } catch (error) {
+    console.log('⚠️  Skipping Pool Funding History test - error getting pools');
+  }
+
+  // Test user activity (will use first available user if any)
+  // NOTE: This test will fail until the subgraph is redeployed with the new Withdrawal entity
+  try {
+    const usersData = await client.request(`
+      query GetFirstUser {
+        users(first: 1) {
+          id
+        }
+      }
+    `);
+    if (usersData.users && usersData.users.length > 0) {
+      results.push(await testQuery('User Activity', TEST_QUERIES.userActivity, {
+        userId: usersData.users[0].id
+      }));
+    } else {
+      console.log('⚠️  Skipping User Activity test - no users found');
+    }
+  } catch (error) {
+    console.log('⚠️  Skipping User Activity test - error getting users');
+  }
+
   // Summary
   const passed = results.filter(r => r).length;
   const total = results.length;
@@ -221,23 +357,34 @@ async function runTests() {
 async function performanceTest() {
   console.log('\n🏃 Running performance tests...');
 
-  const startTime = Date.now();
-
   try {
     // Test large pool query
+    let startTime = Date.now();
     await client.request(TEST_QUERIES.poolSearch, {
       first: 100,
       minFunding: "0"
     });
+    let endTime = Date.now();
+    let duration = endTime - startTime;
 
-    const endTime = Date.now();
-    const duration = endTime - startTime;
-
-    console.log(`✅ Large query (100 pools) completed in ${duration}ms`);
-
+    console.log(`✅ Large pool query (100 pools) completed in ${duration}ms`);
     if (duration > 5000) {
-      console.warn('⚠️  Query took longer than 5s - consider optimization');
+      console.warn('⚠️  Pool query took longer than 5s - consider optimization');
     }
+
+    // Test large withdrawals query
+    startTime = Date.now();
+    await client.request(TEST_QUERIES.withdrawals, {
+      first: 100
+    });
+    endTime = Date.now();
+    duration = endTime - startTime;
+
+    console.log(`✅ Large withdrawals query (100 withdrawals) completed in ${duration}ms`);
+    if (duration > 5000) {
+      console.warn('⚠️  Withdrawals query took longer than 5s - consider optimization');
+    }
+
   } catch (error) {
     console.error('❌ Performance test failed:', error.message);
   }

@@ -7,7 +7,7 @@ import {
   EmergencySweepNoticeInitiated
 } from "../generated/templates/RewardPoolVault/RewardPoolImplementation";
 
-import { Pool, User, Claim, Funding, Token, FactoryStats, DailyStatistic, UserPoolState } from "../generated/schema";
+import { Pool, User, Claim, Funding, Withdrawal, Token, FactoryStats, DailyStatistic, UserPoolState } from "../generated/schema";
 import { BigInt, Bytes, Address } from "@graphprotocol/graph-ts";
 
 // Constants
@@ -119,12 +119,12 @@ export function handleWithdrawn(event: Withdrawn): void {
     user.save();
   }
 
-  // Create withdrawal record (reuse Funding entity for simplicity)
+  // Create withdrawal record using dedicated Withdrawal entity
   let withdrawalId = event.transaction.hash.concatI32(event.logIndex.toI32());
-  let withdrawal = new Funding(withdrawalId);
+  let withdrawal = new Withdrawal(withdrawalId);
   withdrawal.pool = event.address;
-  withdrawal.funder = event.params.creator;
-  withdrawal.amount = event.params.amount.neg(); // Negative amount to indicate withdrawal
+  withdrawal.creator = event.params.creator;
+  withdrawal.amount = event.params.amount; // Positive amount representing withdrawal
   withdrawal.transactionHash = event.transaction.hash;
   withdrawal.blockNumber = event.block.number;
   withdrawal.timestamp = event.block.timestamp;
@@ -157,7 +157,7 @@ export function handleClaimed(event: ClaimedMinimal): void {
   if (!pool) {
     return; // Pool should exist
   }
-  
+
   // Validate pool token
   let token = Token.load(pool.token);
   if (!token || !token.isAllowed) {
@@ -175,7 +175,7 @@ export function handleClaimed(event: ClaimedMinimal): void {
   // Get or create user pool state for incremental calculation
   let userPoolStateId = event.params.account.concat(event.address);
   let userPoolState = UserPoolState.load(userPoolStateId);
-  
+
   let isNewPoolForUser = false;
   if (!userPoolState) {
     userPoolState = createUserPoolState(userPoolStateId, event.params.account, event.address, event.block.timestamp);
@@ -185,19 +185,19 @@ export function handleClaimed(event: ClaimedMinimal): void {
   // Calculate incremental amounts from cumulative values
   let newCumulativeAmount = event.params.cumulativeAmount;
   let previousCumulativeAmount = userPoolState.lastCumulativeAmount;
-  
+
   // Validate that cumulative amount is increasing
   if (newCumulativeAmount.le(previousCumulativeAmount)) {
     return; // Skip invalid claims where cumulative amount doesn't increase
   }
-  
+
   // Calculate incremental gross amount (what user actually received in this claim)
   let incrementalGrossAmount = newCumulativeAmount.minus(previousCumulativeAmount);
-  
+
   // Calculate incremental fee and net amounts
   let incrementalFeeAmount = incrementalGrossAmount.times(PLATFORM_FEE_BPS).div(BASIS_POINTS);
   let incrementalNetAmount = incrementalGrossAmount.minus(incrementalFeeAmount);
-  
+
   // Additional validation - ensure positive amounts
   if (incrementalGrossAmount.le(BigInt.zero()) || incrementalNetAmount.lt(BigInt.zero())) {
     return; // Skip invalid claims
