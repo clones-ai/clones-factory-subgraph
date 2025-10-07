@@ -10,9 +10,9 @@ dataSources:
     name: RewardPoolFactory
     network: base-sepolia
     source:
-      address: "0x1f7D82ccB742593118c91B0d5Ef34Dc6e41676bf"
+      address: "0x374111D6a1e97248B31Dee9d995B1A0d01F99065"
       abi: RewardPoolFactory
-      startBlock: 30536800
+      startBlock: 32039730
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -38,6 +38,14 @@ dataSources:
           handler: handlePublisherRotationInitiated
         - event: PublisherRotationCancelled(indexed address,indexed address)
           handler: handlePublisherRotationCancelled
+        - event: PublisherEmergencyRevoked(indexed address,indexed address,string)
+          handler: handlePublisherEmergencyRevoked
+        - event: EmergencyPauseAll(indexed address,indexed uint256)
+          handler: handleEmergencyPauseAll
+        - event: Paused(address)
+          handler: handleFactoryPaused
+        - event: Unpaused(address)
+          handler: handleFactoryUnpaused
       file: ./src/factory.ts
   
   # ClaimRouter - Batch claims processing
@@ -45,9 +53,9 @@ dataSources:
     name: ClaimRouter
     network: base-sepolia
     source:
-      address: "0x1BFC02a7131Db713Fc25f7BeA0e4bE2CF065CFba"
+      address: "0x8d61030Cf6AB664BF5170Dd1a54071C92ea6cBC1"
       abi: ClaimRouter
-      startBlock: 30536800
+      startBlock: 32039730
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -72,6 +80,8 @@ dataSources:
           handler: handleFactoryApprovalUpdated
         - event: MaxBatchSizeUpdated(indexed uint256,indexed uint256)
           handler: handleMaxBatchSizeUpdated
+        - event: MaxGasPerClaimUpdated(indexed uint256,indexed uint256)
+          handler: handleMaxGasPerClaimUpdated
       file: ./src/claim-router.ts
 
 # Template for dynamically created vault contracts
@@ -107,4 +117,16 @@ templates:
           handler: handleEmergencySweep
         - event: EmergencySweepNoticeInitiated(indexed address,string,indexed uint256)
           handler: handleEmergencySweepNoticeInitiated
+        - event: HighValueClaim(indexed address,indexed uint256,uint256,uint256)
+          handler: handleHighValueClaim
+        - event: LargeCreatorWithdrawal(indexed address,indexed uint256,uint256,uint256)
+          handler: handleLargeCreatorWithdrawal
+        - event: RateLimitHit(indexed uint256,uint256,uint256)
+          handler: handleRateLimitHit
+        - event: SuspiciousActivity(indexed address,indexed string,string,uint256)
+          handler: handleSuspiciousActivity
+        - event: Paused(address)
+          handler: handleVaultPaused
+        - event: Unpaused(address)
+          handler: handleVaultUnpaused
       file: ./src/vault.ts

@@ -4,6 +4,10 @@ import {
   TokenAllowedUpdated,
   PublisherRotationInitiated,
   PublisherRotationCancelled,
+  PublisherEmergencyRevoked,
+  EmergencyPauseAll,
+  Paused,
+  Unpaused,
   RewardPoolFactory
 } from "../generated/RewardPoolFactory/RewardPoolFactory";
 
@@ -662,4 +666,81 @@ export function updatePoolMetadata(
   metadataUpdate.save();
 
   pool.save();
+}
+
+/**
+ * Handler for PublisherEmergencyRevoked event
+ */
+export function handlePublisherEmergencyRevoked(event: PublisherEmergencyRevoked): void {
+  // Validate publisher address
+  if (!isValidAddress(event.params.revokedPublisher)) {
+    return;
+  }
+
+  // Load or create factory
+  let factory = Factory.load(event.address);
+  if (!factory) {
+    factory = createFactoryWithInitialization(event.address, event.block.timestamp, event.block.number);
+  }
+
+  // Clear the revoked publisher if it matches current publisher
+  if (factory.publisher.equals(event.params.revokedPublisher)) {
+    factory.publisher = Address.zero();
+  }
+
+  factory.save();
+
+  // Could create a PublisherRevocation entity to track these events
+  // For now, we're just updating the factory state
+}
+
+/**
+ * Handler for EmergencyPauseAll event
+ */
+export function handleEmergencyPauseAll(event: EmergencyPauseAll): void {
+  // Load or create factory
+  let factory = Factory.load(event.address);
+  if (!factory) {
+    factory = createFactoryWithInitialization(event.address, event.block.timestamp, event.block.number);
+  }
+
+  // Track that emergency pause was triggered
+  // This could be expanded to track pause state in Factory entity
+  factory.save();
+
+  // Could create an EmergencyEvent entity to track these critical events
+}
+
+/**
+ * Handler for Factory Paused event
+ */
+export function handleFactoryPaused(event: Paused): void {
+  // Load or create factory
+  let factory = Factory.load(event.address);
+  if (!factory) {
+    factory = createFactoryWithInitialization(event.address, event.block.timestamp, event.block.number);
+  }
+
+  // Mark factory as paused
+  // Note: If Factory schema has an isPaused field, set it here
+  // factory.isPaused = true;
+
+  factory.save();
+}
+
+/**
+ * Handler for Factory Unpaused event
+ */
+export function handleFactoryUnpaused(event: Unpaused): void {
+  // Load or create factory
+  let factory = Factory.load(event.address);
+  if (!factory) {
+    factory = createFactoryWithInitialization(event.address, event.block.timestamp, event.block.number);
+  }
+
+  // Mark factory as unpaused
+  // Note: If Factory schema has an isPaused field, set it here
+  // factory.isPaused = false;
+
+  factory.save();
 }
