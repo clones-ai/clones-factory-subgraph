@@ -3,7 +3,8 @@ import {
   ClaimSucceeded,
   ClaimFailed,
   FactoryApprovalUpdated,
-  MaxBatchSizeUpdated
+  MaxBatchSizeUpdated,
+  MaxGasPerClaimUpdated
 } from "../generated/ClaimRouter/ClaimRouter";
 
 import {
@@ -136,5 +137,14 @@ function updateDailyStats(
  */
 export function handleMaxBatchSizeUpdated(event: MaxBatchSizeUpdated): void {
   // Track batch size configuration changes
+  // For now, just track the event without creating entities
+}
+
+/**
+ * Handler for MaxGasPerClaimUpdated event
+ */
+export function handleMaxGasPerClaimUpdated(event: MaxGasPerClaimUpdated): void {
+  // Track gas limit configuration changes
+  // Could be used to optimize batch claiming strategies
   // For now, just track the event without creating entities
 }

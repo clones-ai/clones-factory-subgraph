@@ -4,7 +4,13 @@ import {
   ClaimedMinimal,
   PlatformTreasuryUpdated,
   EmergencySweep,
-  EmergencySweepNoticeInitiated
+  EmergencySweepNoticeInitiated,
+  HighValueClaim,
+  LargeCreatorWithdrawal,
+  RateLimitHit,
+  SuspiciousActivity,
+  Paused,
+  Unpaused
 } from "../generated/templates/RewardPoolVault/RewardPoolImplementation";
 
 import { Pool, User, Claim, Funding, Withdrawal, Token, FactoryStats, DailyStatistic, UserPoolState } from "../generated/schema";
@@ -367,4 +373,109 @@ function updateDailyStats(
 export function handleEmergencySweepNoticeInitiated(event: EmergencySweepNoticeInitiated): void {
   // Track emergency sweep notice for monitoring
   // For now, just track the event without creating entities
+}
+
+/**
+ * Handler for HighValueClaim event - tracks unusually large claims
+ */
+export function handleHighValueClaim(event: HighValueClaim): void {
+  // Load pool
+  let pool = Pool.load(event.address);
+  if (!pool) {
+    return;
+  }
+
+  // This event is emitted for monitoring purposes
+  // Could create a HighValueClaim entity for security analytics
+  // For now, just ensure the claim was tracked properly via ClaimedMinimal
+  pool.lastActivityAt = event.block.timestamp;
+  pool.updatedAt = event.block.timestamp;
+  pool.save();
+}
+
+/**
+ * Handler for LargeCreatorWithdrawal event - tracks large creator withdrawals
+ */
+export function handleLargeCreatorWithdrawal(event: LargeCreatorWithdrawal): void {
+  // Load pool
+  let pool = Pool.load(event.address);
+  if (!pool) {
+    return;
+  }
+
+  // This event is emitted for monitoring large withdrawals
+  // The actual withdrawal is already tracked via Withdrawn event
+  // This provides additional context about pool balance changes
+  pool.lastActivityAt = event.block.timestamp;
+  pool.updatedAt = event.block.timestamp;
+  pool.save();
+}
+
+/**
+ * Handler for RateLimitHit event - tracks when rate limits are hit
+ */
+export function handleRateLimitHit(event: RateLimitHit): void {
+  // Load pool
+  let pool = Pool.load(event.address);
+  if (!pool) {
+    return;
+  }
+
+  // This event indicates potential spam or abuse
+  // Could create a RateLimitEvent entity for security analytics
+  pool.lastActivityAt = event.block.timestamp;
+  pool.updatedAt = event.block.timestamp;
+  pool.save();
+}
+
+/**
+ * Handler for SuspiciousActivity event - tracks suspicious behavior
+ */
+export function handleSuspiciousActivity(event: SuspiciousActivity): void {
+  // Load pool
+  let pool = Pool.load(event.address);
+  if (!pool) {
+    return;
+  }
+
+  // This event indicates potentially malicious activity
+  // Could create a SecurityEvent entity for monitoring
+  // Mark pool as having suspicious activity
+  pool.lastActivityAt = event.block.timestamp;
+  pool.updatedAt = event.block.timestamp;
+  pool.save();
+}
+
+/**
+ * Handler for Vault Paused event
+ */
+export function handleVaultPaused(event: Paused): void {
+  // Load pool
+  let pool = Pool.load(event.address);
+  if (!pool) {
+    return;
+  }
+
+  // Mark pool as inactive when paused
+  pool.isActive = false;
+  pool.lastActivityAt = event.block.timestamp;
+  pool.updatedAt = event.block.timestamp;
+  pool.save();
+}
+
+/**
+ * Handler for Vault Unpaused event
+ */
+export function handleVaultUnpaused(event: Unpaused): void {
+  // Load pool
+  let pool = Pool.load(event.address);
+  if (!pool) {
+    return;
+  }
+
+  // Mark pool as active when unpaused
+  pool.isActive = true;
+  pool.lastActivityAt = event.block.timestamp;
+  pool.updatedAt = event.block.timestamp;
+  pool.save();
 }
