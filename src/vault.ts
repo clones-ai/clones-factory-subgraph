@@ -6,7 +6,6 @@ import {
   EmergencySweep,
   EmergencySweepNoticeInitiated,
   HighValueClaim,
-  LargeCreatorWithdrawal,
   RateLimitHit,
   SuspiciousActivity,
   Paused,
@@ -388,24 +387,6 @@ export function handleHighValueClaim(event: HighValueClaim): void {
   // This event is emitted for monitoring purposes
   // Could create a HighValueClaim entity for security analytics
   // For now, just ensure the claim was tracked properly via ClaimedMinimal
-  pool.lastActivityAt = event.block.timestamp;
-  pool.updatedAt = event.block.timestamp;
-  pool.save();
-}
-
-/**
- * Handler for LargeCreatorWithdrawal event - tracks large creator withdrawals
- */
-export function handleLargeCreatorWithdrawal(event: LargeCreatorWithdrawal): void {
-  // Load pool
-  let pool = Pool.load(event.address);
-  if (!pool) {
-    return;
-  }
-
-  // This event is emitted for monitoring large withdrawals
-  // The actual withdrawal is already tracked via Withdrawn event
-  // This provides additional context about pool balance changes
   pool.lastActivityAt = event.block.timestamp;
   pool.updatedAt = event.block.timestamp;
   pool.save();
