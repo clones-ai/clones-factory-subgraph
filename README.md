@@ -32,31 +32,57 @@ This subgraph indexes the Clones factory system smart contracts for discovery an
 ### Local Development
 ```bash
 npm install
-npx graph codegen
-npx graph build
+
+# Generate types from ABIs
+npm run graph:codegen           # Uses testnet config by default
+npm run graph:codegen:testnet   # Explicitly testnet
+npm run graph:codegen:mainnet   # Explicitly mainnet
+
+# Build subgraph
+npm run build                   # Uses testnet config by default
+npm run build:testnet           # Explicitly testnet  
+npm run build:mainnet           # Explicitly mainnet
 
 # Local deployment (requires Graph Node)
 npx graph create --node http://localhost:8020/ clones/factory
-npx graph deploy --node http://localhost:8020/ clones/factory
+npx graph deploy --node http://localhost:8020/ clones/factory --config-file subgraph-testnet.yaml
 ```
 
 ### The Graph Studio Deployment
+
+#### Testnet (Base Sepolia)
+```bash
+# Build and deploy testnet version
+npm run build:testnet
+npm run deploy:testnet
+
+# Or manually with specific config
+graph build --config-file subgraph-testnet.yaml
+graph deploy clones-factory-base-sepolia --config-file subgraph-testnet.yaml
+```
+
+#### Mainnet (Base)
+```bash
+# Build and deploy mainnet version
+npm run build:mainnet
+npm run deploy:mainnet
+
+# Or manually with specific config
+graph build --config-file subgraph-mainnet.yaml
+graph deploy clones-factory-base --config-file subgraph-mainnet.yaml
+```
+
+#### First-time Setup
 ```bash
 # Install Graph CLI
 npm install -g @graphprotocol/graph-cli
 
-# Generate types and build
-npx graph codegen
-npx graph build
-
 # Authenticate with deployment key from Subgraph Studio
 graph auth <YOUR_DEPLOYMENT_KEY>
 
-# Initialize subgraph (first time only)
-graph init <SUBGRAPH_SLUG>
-
-# Deploy to Subgraph Studio
-graph deploy <SUBGRAPH_SLUG>
+# Initialize subgraphs (first time only)
+graph init clones-factory-base-sepolia    # For testnet
+graph init clones-factory-base             # For mainnet
 ```
 
 **Steps to get deployment key:**
@@ -83,21 +109,21 @@ When smart contracts are modified and redeployed, the subgraph must be updated t
     -   Copy the new ABI (`.json`) files generated from your contract compilation.
     -   Replace the old files in the `abis/` directory.
 
-2.  **Modify `subgraph.yaml`**:
+2.  **Modify Configuration Files**:
+    -   **For Testnet**: Update `subgraph-testnet.yaml`
+    -   **For Mainnet**: Update `subgraph-mainnet.yaml` 
     -   **Contract Addresses**: Update the addresses in the `dataSources` section.
     -   **Start Block**: Change the `startBlock` value to match the deployment block of the new contracts. This avoids indexing unnecessary events from the old contracts.
     -   **Event Signatures**: If an event's structure has changed (parameters added/removed), update its signature in the `eventHandlers` section.
 
 3.  **Regenerate Types and Update Mappings**:
-    -   Run `npx graph codegen` to update the AssemblyScript classes based on the new ABIs.
+    -   **For Testnet**: `npm run graph:codegen:testnet`
+    -   **For Mainnet**: `npm run graph:codegen:mainnet`
     -   Modify the mapping functions (handlers in `src/`) to match the new event signatures. For example, if an event has a new parameter, its handling function must be adapted to receive it.
 
 4.  **Build and Deploy**:
-    -   Build the subgraph with `npx graph build`.
-    -   Deploy a new version to The Graph Studio:
-        ```bash
-        graph deploy <YOUR_SUBGRAPH_SLUG>
-        ```
+    -   **For Testnet**: `npm run build:testnet && npm run deploy:testnet`
+    -   **For Mainnet**: `npm run build:mainnet && npm run deploy:mainnet`
     -   During deployment, the CLI will prompt you to assign a new version number (e.g., `v0.0.2`).
 
 ## Local Development & Validation
@@ -106,20 +132,26 @@ When smart contracts are modified and redeployed, the subgraph must be updated t
 
 The recommended development workflow for GraphQL queries:
 
-1. **Local Validation**: `npm run codegen` - Validates queries against deployed schema
-2. **Live Testing**: `npm run test-queries` - Tests queries with real data
-3. **Deploy**: Update subgraph when schema changes
+1. **Generate Types from ABIs**: `npm run graph:codegen` - Generates AssemblyScript types from contract ABIs
+2. **Query Validation**: `npm run codegen` - Validates queries against deployed schema
+3. **Live Testing**: `npm run test-queries` - Tests queries with real data
+4. **Deploy**: Update subgraph when schema changes
 
 ### Query Validation
 
 Validate your GraphQL queries against the deployed subgraph schema:
 
 ```bash
+# Validate against active environment (set in .env)
 npm run codegen
+
+# Validate against specific environment
+npm run codegen:testnet   # Validates against testnet deployment
+npm run codegen:mainnet   # Validates against mainnet deployment
 ```
 
-This command will:
-- Fetch the schema from your deployed subgraph (via `SUBGRAPH_URL` in `.env`)
+These commands will:
+- Fetch the schema from your deployed subgraph
 - Validate all queries in `queries.graphql` against the real schema
 - Generate TypeScript types in `src/generated/graphql.ts`
 - Fail immediately with precise error messages for invalid queries
@@ -131,10 +163,15 @@ This command will:
 Test GraphQL queries against the deployed subgraph with real data:
 
 ```bash
+# Test against active environment (set in .env)
 npm run test-queries
+
+# Test against specific environment
+npm run test-queries:testnet   # Tests against testnet deployment
+npm run test-queries:mainnet   # Tests against mainnet deployment
 ```
 
-This script runs predefined queries and reports failures or performance issues.
+These scripts run predefined queries and report failures or performance issues.
 
 ### Schema Type Mapping
 
@@ -316,7 +353,7 @@ clones-factory-subgraph/
 │   ├── ClaimRouter.json         # Claim router interface
 │   └── RewardPoolImplementation.json # Vault template interface
 ├── schema.graphql               # GraphQL schema definition
-├── subgraph.yaml               # Testnet configuration
+├── subgraph-testnet.yaml       # Testnet configuration
 ├── subgraph-mainnet.yaml       # Mainnet configuration (TBD)
 ├── queries.graphql             # Sample GraphQL queries
 ├── generated/                   # Auto-generated TypeScript types
@@ -326,7 +363,8 @@ clones-factory-subgraph/
 
 ### Key Files
 - **`schema.graphql`**: Defines all entities, relationships, and query interfaces
-- **`subgraph.yaml`**: Main configuration with contract addresses and start blocks
+- **`subgraph-testnet.yaml`**: Testnet configuration with contract addresses and start blocks
+- **`subgraph-mainnet.yaml`**: Mainnet configuration with contract addresses and start blocks
 - **`src/factory.ts`**: Handles pool creation, funding, and governance events
 - **`src/claim-router.ts`**: Processes individual and batch claim transactions
 - **`src/vault.ts`**: Template for dynamically created vault instances

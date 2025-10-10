@@ -1,12 +1,23 @@
 {
   "name": "clones-factory-subgraph",
-  "version": "0.0.21",
+  "version": "0.0.22",
   "description": "The Graph subgraph for Clones Factory system",
   "scripts": {
     "codegen": "dotenv -e .env -- graphql-codegen --config codegen.yml",
-    "build": "graph build",
+    "codegen:testnet": "dotenv -e .env -- cross-env SUBGRAPH_URL=$SUBGRAPH_URL_TESTNET graphql-codegen --config codegen.yml",
+    "codegen:mainnet": "dotenv -e .env -- cross-env SUBGRAPH_URL=$SUBGRAPH_URL_MAINNET graphql-codegen --config codegen.yml",
+    "graph:codegen": "graph codegen subgraph-testnet.yaml",
+    "graph:codegen:testnet": "graph codegen subgraph-testnet.yaml",
+    "graph:codegen:mainnet": "graph codegen subgraph-mainnet.yaml",
+    "build": "graph build subgraph-testnet.yaml",
+    "build:testnet": "graph build subgraph-testnet.yaml",
+    "build:mainnet": "graph build subgraph-mainnet.yaml",
     "deploy": "graph deploy",
-    "test-queries": "node scripts/test-queries.js"
+    "deploy:testnet": "graph deploy clones-factory-base-sepolia subgraph-testnet.yaml --version-label v$npm_package_version",
+    "deploy:mainnet": "graph deploy clones-factory-base subgraph-mainnet.yaml --version-label v$npm_package_version",
+    "test-queries": "node scripts/test-queries.js",
+    "test-queries:testnet": "dotenv -e .env -- cross-env SUBGRAPH_URL=$SUBGRAPH_URL_TESTNET node scripts/test-queries.js",
+    "test-queries:mainnet": "dotenv -e .env -- cross-env SUBGRAPH_URL=$SUBGRAPH_URL_MAINNET node scripts/test-queries.js"
   },
   "dependencies": {
     "@graphprotocol/graph-cli": "0.97.1",
@@ -17,8 +28,15 @@
   "devDependencies": {
     "@graphql-codegen/cli": "^5.0.7",
     "@graphql-codegen/typescript": "^4.1.6",
+    "cross-env": "^7.0.3",
     "dotenv-cli": "^10.0.0",
     "graphql": "^16.11.0",
     "typescript": "^5.0.0"
+  },
+  "overrides": {
+    "axios": "^1.7.7",
+    "cross-spawn": "^7.0.5",
+    "ejs": "^3.1.10",
+    "semver": "^7.5.2"
   }
 }

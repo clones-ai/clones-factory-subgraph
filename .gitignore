@@ -18,6 +18,8 @@ logs/
 .env
 .env.local
 .env.*.local
+.env.test
+.env.prod
 
 # IDE / Editor settings
 .vscode/

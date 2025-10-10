@@ -35,6 +35,14 @@ dataSources:
           handler: handlePublisherRotationInitiated
         - event: PublisherRotationCancelled(indexed address,indexed address)
           handler: handlePublisherRotationCancelled
+        - event: PublisherEmergencyRevoked(indexed address,indexed address,string)
+          handler: handlePublisherEmergencyRevoked
+        - event: EmergencyPauseAll(indexed address,indexed uint256)
+          handler: handleEmergencyPauseAll
+        - event: Paused(address)
+          handler: handleFactoryPaused
+        - event: Unpaused(address)
+          handler: handleFactoryUnpaused
       file: ./src/factory.ts
   
   # ClaimRouter - Batch claims processing on Base Mainnet
@@ -56,6 +64,8 @@ dataSources:
       abis:
         - name: ClaimRouter
           file: ./abis/ClaimRouter.json
+        - name: ERC20
+          file: ./abis/ERC20.json
       eventHandlers:
         - event: BatchClaimed(indexed address,indexed uint256,indexed uint256,uint256,uint256,uint256,uint256)
           handler: handleBatchClaimed
@@ -67,6 +77,8 @@ dataSources:
           handler: handleFactoryApprovalUpdated
         - event: MaxBatchSizeUpdated(indexed uint256,indexed uint256)
           handler: handleMaxBatchSizeUpdated
+        - event: MaxGasPerClaimUpdated(indexed uint256,indexed uint256)
+          handler: handleMaxGasPerClaimUpdated
       file: ./src/claim-router.ts
 
 # Template for dynamically created vault contracts on Base Mainnet
@@ -87,6 +99,8 @@ templates:
       abis:
         - name: RewardPoolImplementation
           file: ./abis/RewardPoolImplementation.json
+        - name: ERC20
+          file: ./abis/ERC20.json
       eventHandlers:
         - event: Funded(indexed address,indexed address,indexed uint256)
           handler: handleFunded
@@ -100,4 +114,14 @@ templates:
           handler: handleEmergencySweep
         - event: EmergencySweepNoticeInitiated(indexed address,string,indexed uint256)
           handler: handleEmergencySweepNoticeInitiated
+        - event: HighValueClaim(indexed address,indexed uint256,uint256,uint256)
+          handler: handleHighValueClaim
+        - event: RateLimitHit(indexed uint256,uint256,uint256)
+          handler: handleRateLimitHit
+        - event: SuspiciousActivity(indexed address,indexed string,string,uint256)
+          handler: handleSuspiciousActivity
+        - event: Paused(address)
+          handler: handleVaultPaused
+        - event: Unpaused(address)
+          handler: handleVaultUnpaused
       file: ./src/vault.ts
