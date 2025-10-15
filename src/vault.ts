@@ -9,10 +9,11 @@ import {
   RateLimitHit,
   SuspiciousActivity,
   Paused,
-  Unpaused
+  Unpaused,
+  ReferralReward as ReferralRewardEvent
 } from "../generated/templates/RewardPoolVault/RewardPoolImplementation";
 
-import { Pool, User, Claim, Funding, Withdrawal, Token, FactoryStats, DailyStatistic, UserPoolState } from "../generated/schema";
+import { Pool, User, Claim, Funding, Withdrawal, Token, FactoryStats, DailyStatistic, UserPoolState, Referrer, ReferralReward } from "../generated/schema";
 import { BigInt, Bytes, Address } from "@graphprotocol/graph-ts";
 
 // Constants
@@ -456,6 +457,51 @@ export function handleVaultUnpaused(event: Unpaused): void {
 
   // Mark pool as active when unpaused
   pool.isActive = true;
+  pool.lastActivityAt = event.block.timestamp;
+  pool.updatedAt = event.block.timestamp;
+  pool.save();
+}
+
+/**
+ * Handler for ReferralReward event - tracks referral rewards
+ */
+export function handleReferralReward(event: ReferralRewardEvent): void {
+  // Load pool
+  let pool = Pool.load(event.address);
+  if (!pool) {
+    return; // Pool should exist
+  }
+
+  // Load or create referrer entity
+  let referrer = Referrer.load(event.params.referrer);
+  if (!referrer) {
+    referrer = new Referrer(event.params.referrer);
+    referrer.totalRewards = BigInt.zero();
+    referrer.totalReferrals = BigInt.zero();
+    referrer.totalClaims = BigInt.zero();
+    referrer.firstReferralAt = event.block.timestamp;
+    referrer.lastReferralAt = event.block.timestamp;
+  }
+
+  // Update referrer statistics
+  referrer.totalRewards = referrer.totalRewards.plus(event.params.amount);
+  referrer.totalClaims = referrer.totalClaims.plus(BigInt.fromI32(1));
+  referrer.lastReferralAt = event.block.timestamp;
+  referrer.save();
+
+  // Create referral reward record
+  let rewardId = event.transaction.hash.concatI32(event.logIndex.toI32());
+  let reward = new ReferralReward(rewardId);
+  reward.pool = event.address;
+  reward.referrer = event.params.referrer;
+  reward.farmer = event.params.farmer;
+  reward.amount = event.params.amount;
+  reward.transactionHash = event.transaction.hash;
+  reward.blockNumber = event.block.number;
+  reward.timestamp = event.block.timestamp;
+  reward.save();
+
+  // Update pool activity
   pool.lastActivityAt = event.block.timestamp;
   pool.updatedAt = event.block.timestamp;
   pool.save();

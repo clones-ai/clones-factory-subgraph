@@ -10,7 +10,7 @@ dataSources:
     name: RewardPoolFactory
     network: base-sepolia
     source:
-      address: "0xB6557103fD68875237b96b6480F8c8E095d57169"
+      address: "0x49c97F8d22AEed45f691510D39717ac8C3028203"
       abi: RewardPoolFactory
       startBlock: 32117820
     mapping:
@@ -53,7 +53,7 @@ dataSources:
     name: ClaimRouter
     network: base-sepolia
     source:
-      address: "0xa30d195da723975eE98529F4C17f16543217BeB9"
+      address: "0xB3653BEE80F35762a3B4AbDe4D87b994f56Cf996"
       abi: ClaimRouter
       startBlock: 32117819
     mapping:
@@ -127,4 +127,6 @@ templates:
           handler: handleVaultPaused
         - event: Unpaused(address)
           handler: handleVaultUnpaused
+        - event: ReferralReward(indexed address,indexed uint256,indexed address)
+          handler: handleReferralReward
       file: ./src/vault.ts

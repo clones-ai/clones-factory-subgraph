@@ -244,3 +244,29 @@ type PoolMetadataUpdate @entity(immutable: true) {
   timestamp: BigInt!
   blockNumber: BigInt!
 }
+
+# Referral System
+type Referrer @entity(immutable: false) {
+  id: Bytes! # Referrer address
+  totalRewards: BigInt! # Total referral rewards earned
+  totalReferrals: BigInt! # Number of unique users referred
+  totalClaims: BigInt! # Number of claims with this referrer
+  rewards: [ReferralReward!]! @derivedFrom(field: "referrer")
+  
+  # Timestamps
+  firstReferralAt: BigInt!
+  lastReferralAt: BigInt!
+}
+
+type ReferralReward @entity(immutable: true) {
+  id: Bytes! # Transaction hash + log index
+  pool: Pool! # Pool where the claim happened
+  referrer: Referrer! # Referrer who earned the reward
+  farmer: Bytes! # User (farmer) who claimed
+  amount: BigInt! # Referral reward amount
+  
+  # Transaction Info
+  transactionHash: Bytes!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
