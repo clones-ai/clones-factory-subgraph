@@ -1,23 +1,44 @@
 # Clones Factory Subgraph
 
-This subgraph indexes the Clones factory system smart contracts for discovery and search functionality. Currently configured for Base Sepolia testnet during development phase. Mainnet deployment addresses will be updated upon production release.
+This subgraph indexes the Clones factory system smart contracts for discovery and search functionality. The project now includes two main subgraphs:
+
+1. **Factory Subgraph**: Original reward pool factory system
+2. **Datamarketplace Subgraph**: New AI training data marketplace with bonding curves
+
+Currently configured for Base Sepolia testnet during development phase. Mainnet deployment addresses will be updated upon production release.
 
 ## Architecture
 
-### Indexed Contracts
+### Factory Subgraph - Indexed Contracts
 - **RewardPoolFactory**
 - **ClaimRouter**
 - **RewardPoolVault Templates**: Dynamically created vaults via EIP-1167
 
+### Datamarketplace Subgraph - Indexed Contracts
+- **DatasetFactory**: EIP-1167 factory for creating dataset tokens with bonding curves
+- **BondingCurveImplementation**: Constant product bonding curve with graduation to Uniswap
+- **DatasetTokenImplementation**: ERC20 dataset tokens with burn-to-download mechanics
+- **BurnPortal**: Manages token burning for dataset access after graduation
+- **GraduationManager**: Handles graduation from bonding curve to Uniswap V2
+
 > **Note**: Mainnet contract addresses will be added here once production deployment is complete.
 
-### Key Features
+### Factory Subgraph - Key Features
 - **Real-time Factory Indexing**: Tracks pool creation, token allowlist, publisher rotation
 - **Comprehensive Claim Analytics**: Individual and batch claim tracking with gas optimization
 - **Direct Metadata System**: Full skills/task type storage and search functionality
 - **Multi-dimensional Search**: Skills, description, and full-text search
 - **Advanced Analytics**: Daily stats, user statistics, performance metrics
 - **Search Optimization**: Efficient queries by skills, taskType, owner via GraphQL
+
+### Datamarketplace Subgraph - Key Features
+- **Dataset Lifecycle Tracking**: Complete tracking from creation to graduation
+- **Bonding Curve Analytics**: Real-time trading data, price tracking, and volume analysis
+- **Burn-to-Download Events**: Track token burning for dataset access
+- **Graduation Monitoring**: Automated graduation from bonding curves to Uniswap V2
+- **Creator Analytics**: Revenue tracking for dataset creators
+- **User Activity**: Comprehensive user trading and access patterns
+- **Daily Metrics**: Time-series data for dashboard analytics
 
 ### Metadata Features
 - **Direct Storage**: Skills and task types stored directly in entities
@@ -30,6 +51,8 @@ This subgraph indexes the Clones factory system smart contracts for discovery an
 ## Deployment
 
 ### Local Development
+
+#### Factory Subgraph
 ```bash
 npm install
 
@@ -48,9 +71,24 @@ npx graph create --node http://localhost:8020/ clones/factory
 npx graph deploy --node http://localhost:8020/ clones/factory --config-file subgraph-testnet.yaml
 ```
 
+#### Datamarketplace Subgraph
+```bash
+# Generate types from ABIs
+npm run graph:codegen:datamarketplace:testnet   # Datamarketplace testnet
+npm run graph:codegen:datamarketplace:mainnet   # Datamarketplace mainnet
+
+# Build subgraph
+npm run build:datamarketplace:testnet           # Datamarketplace testnet
+npm run build:datamarketplace:mainnet           # Datamarketplace mainnet
+
+# Local deployment (requires Graph Node)
+npx graph create --node http://localhost:8020/ clones/datamarketplace
+npx graph deploy --node http://localhost:8020/ clones/datamarketplace --config-file subgraph-datamarketplace-testnet.yaml
+```
+
 ### The Graph Studio Deployment
 
-#### Testnet (Base Sepolia)
+#### Factory Subgraph - Testnet (Base Sepolia)
 ```bash
 # Build and deploy testnet version
 npm run build:testnet
@@ -61,7 +99,7 @@ graph build --config-file subgraph-testnet.yaml
 graph deploy clones-factory-base-sepolia --config-file subgraph-testnet.yaml
 ```
 
-#### Mainnet (Base)
+#### Factory Subgraph - Mainnet (Base)
 ```bash
 # Build and deploy mainnet version
 npm run build:mainnet
@@ -70,6 +108,28 @@ npm run deploy:mainnet
 # Or manually with specific config
 graph build --config-file subgraph-mainnet.yaml
 graph deploy clones-factory-base --config-file subgraph-mainnet.yaml
+```
+
+#### Datamarketplace Subgraph - Testnet (Base Sepolia)
+```bash
+# Build and deploy datamarketplace testnet version
+npm run build:datamarketplace:testnet
+npm run deploy:datamarketplace:testnet
+
+# Or manually with specific config
+graph build --config-file subgraph-datamarketplace-testnet.yaml
+graph deploy clones-datamarketplace-base-sepolia --config-file subgraph-datamarketplace-testnet.yaml
+```
+
+#### Datamarketplace Subgraph - Mainnet (Base)
+```bash
+# Build and deploy datamarketplace mainnet version
+npm run build:datamarketplace:mainnet
+npm run deploy:datamarketplace:mainnet
+
+# Or manually with specific config
+graph build --config-file subgraph-datamarketplace-mainnet.yaml
+graph deploy clones-datamarketplace-base --config-file subgraph-datamarketplace-mainnet.yaml
 ```
 
 #### First-time Setup
@@ -182,7 +242,7 @@ Note that The Graph transforms your local schema types:
 
 ## Key Query Patterns
 
-### Metadata Queries
+### Factory Subgraph - Metadata Queries
 ```graphql
 # Advanced search by skills and task types
 query SearchBySkills {
@@ -274,7 +334,7 @@ query UserActivity($userAddress: Bytes!) {
 }
 ```
 
-### Batch Claims Analytics
+### Factory Subgraph - Batch Claims Analytics
 ```graphql
 # Batch claim efficiency
 query BatchClaimAnalytics {
@@ -293,20 +353,192 @@ query BatchClaimAnalytics {
 }
 ```
 
+### Datamarketplace Subgraph - Dataset Queries
+```graphql
+# Get all datasets with trading activity
+query DatasetsWithActivity {
+  datasets(
+    where: { totalTrades_gt: "0" }
+    orderBy: totalVolume
+    orderDirection: desc
+    first: 50
+  ) {
+    id
+    name
+    symbol
+    creator
+    totalVolume
+    totalTrades
+    uniqueTraders
+    isGraduated
+    bondingCurve {
+      currentPrice
+      currentMarketCap
+      totalVolumeETH
+    }
+  }
+}
+
+# Search datasets by creator
+query DatasetsByCreator($creator: Bytes!) {
+  datasets(where: { creator: $creator }) {
+    id
+    name
+    symbol
+    totalVolume
+    totalBurned
+    totalAccesses
+    isGraduated
+    createdAt
+  }
+}
+
+# Get graduation events
+query RecentGraduations {
+  graduations(
+    orderBy: timestamp
+    orderDirection: desc
+    first: 20
+  ) {
+    id
+    dataset {
+      name
+      symbol
+    }
+    finalMarketCap
+    ethContributed
+    tokensContributed
+    lpPair
+    timestamp
+  }
+}
+```
+
+### Datamarketplace Subgraph - Trading Analytics
+```graphql
+# Recent trading activity
+query RecentTrades($datasetId: Bytes) {
+  trades(
+    where: { dataset: $datasetId }
+    orderBy: timestamp
+    orderDirection: desc
+    first: 100
+  ) {
+    id
+    type
+    trader
+    ethAmount
+    tokenAmount
+    priceAfter
+    creatorFee
+    protocolFee
+    timestamp
+  }
+}
+
+# Daily trading statistics
+query DailyTradingStats($date: String!) {
+  datamarketplaceDailyStats(id: $date) {
+    date
+    totalTrades
+    totalVolumeETH
+    uniqueTraders
+    averageTradeSize
+    totalCreatorFees
+    totalProtocolFees
+  }
+}
+
+# User trading activity
+query UserTradingActivity($user: Bytes!) {
+  datamarketplaceUser(id: $user) {
+    totalTrades
+    totalVolumeETH
+    totalFeesEarned
+    totalFeesPaid
+    datasetsCreated
+    uniqueDatasetsAccessed
+    trades(orderBy: timestamp, orderDirection: desc, first: 50) {
+      type
+      ethAmount
+      tokenAmount
+      dataset {
+        name
+        symbol
+      }
+      timestamp
+    }
+  }
+}
+```
+
+### Datamarketplace Subgraph - Burn Analytics
+```graphql
+# Burn events for dataset access
+query BurnEvents($datasetId: Bytes) {
+  burnForAccesses(
+    where: { dataset: $datasetId }
+    orderBy: timestamp
+    orderDirection: desc
+    first: 100
+  ) {
+    id
+    burner
+    amount
+    burnThreshold
+    timestamp
+    dataset {
+      name
+      symbol
+    }
+  }
+}
+
+# Most accessed datasets
+query MostAccessedDatasets {
+  datasets(
+    orderBy: totalAccesses
+    orderDirection: desc
+    first: 20
+  ) {
+    id
+    name
+    symbol
+    totalAccesses
+    totalBurned
+    creator
+  }
+}
+```
+
 ## Schema Highlights
 
-### Core Entities
+### Factory Subgraph - Core Entities
 - **Factory**: Main factory contract with governance info
 - **Pool**: Individual reward pools with direct metadata
 - **Token**: ERC-20 tokens with usage statistics
 - **User**: Comprehensive user activity tracking
 - **Claim**: Individual claim records with fee breakdown
 
-### Analytics Entities  
+### Factory Subgraph - Analytics Entities  
 - **BatchClaim**: Batch operation tracking for gas efficiency
 - **DailyStats**: Time-series analytics for dashboards
 - **FactoryStats**: Global system metrics
 - **PoolMetadata**: Direct metadata for search functionality
+
+### Datamarketplace Subgraph - Core Entities
+- **DatasetFactory**: EIP-1167 factory for dataset creation
+- **Dataset**: Individual dataset tokens with trading stats
+- **BondingCurve**: Bonding curve with price and volume data
+- **DatamarketplaceUser**: Comprehensive user activity tracking
+- **Trade**: Individual trade records (buy/sell)
+- **BurnForAccess**: Token burning events for dataset access
+- **Graduation**: Graduation events from bonding curve to Uniswap
+
+### Datamarketplace Subgraph - Analytics Entities
+- **DatamarketplaceDailyStats**: Time-series analytics for dashboards
+- **BurnPortal**: Burn portal management and statistics
+- **GraduationManager**: Graduation management and LP tracking
 
 ## Search Features
 
@@ -347,14 +579,28 @@ clones-factory-subgraph/
 ├── src/                          # Core mapping handlers
 │   ├── factory.ts               # RewardPoolFactory event handlers
 │   ├── claim-router.ts          # ClaimRouter event processing  
-│   └── vault.ts                 # Dynamic vault template handlers
+│   ├── vault.ts                 # Dynamic vault template handlers
+│   └── datamarketplace/         # Datamarketplace handlers
+│       ├── dataset-factory.ts   # DatasetFactory event handlers
+│       ├── bonding-curve.ts     # BondingCurve trading events
+│       ├── burn-portal.ts       # BurnPortal access events
+│       ├── graduation-manager.ts # GraduationManager events
+│       └── dataset-token.ts     # DatasetToken events
 ├── abis/                        # Contract ABI definitions
 │   ├── RewardPoolFactory.json   # Factory contract interface
 │   ├── ClaimRouter.json         # Claim router interface
-│   └── RewardPoolImplementation.json # Vault template interface
-├── schema.graphql               # GraphQL schema definition
-├── subgraph-testnet.yaml       # Testnet configuration
-├── subgraph-mainnet.yaml       # Mainnet configuration (TBD)
+│   ├── RewardPoolImplementation.json # Vault template interface
+│   └── datamarketplace/         # Datamarketplace ABIs
+│       ├── DatasetFactory.json
+│       ├── BondingCurveImplementation.json
+│       ├── DatasetTokenImplementation.json
+│       ├── BurnPortal.json
+│       └── GraduationManager.json
+├── schema.graphql               # GraphQL schema definition (both subgraphs)
+├── subgraph-testnet.yaml       # Factory testnet configuration
+├── subgraph-mainnet.yaml       # Factory mainnet configuration
+├── subgraph-datamarketplace-testnet.yaml # Datamarketplace testnet
+├── subgraph-datamarketplace-mainnet.yaml # Datamarketplace mainnet
 ├── queries.graphql             # Sample GraphQL queries
 ├── generated/                   # Auto-generated TypeScript types
 ├── scripts/                     # Testing and utility scripts
@@ -362,12 +608,25 @@ clones-factory-subgraph/
 ```
 
 ### Key Files
-- **`schema.graphql`**: Defines all entities, relationships, and query interfaces
-- **`subgraph-testnet.yaml`**: Testnet configuration with contract addresses and start blocks
-- **`subgraph-mainnet.yaml`**: Mainnet configuration with contract addresses and start blocks
+
+#### Factory Subgraph Files
+- **`subgraph-testnet.yaml`**: Factory testnet configuration with contract addresses
+- **`subgraph-mainnet.yaml`**: Factory mainnet configuration with contract addresses
 - **`src/factory.ts`**: Handles pool creation, funding, and governance events
 - **`src/claim-router.ts`**: Processes individual and batch claim transactions
 - **`src/vault.ts`**: Template for dynamically created vault instances
+
+#### Datamarketplace Subgraph Files
+- **`subgraph-datamarketplace-testnet.yaml`**: Datamarketplace testnet configuration
+- **`subgraph-datamarketplace-mainnet.yaml`**: Datamarketplace mainnet configuration
+- **`src/datamarketplace/dataset-factory.ts`**: Handles dataset creation and factory events
+- **`src/datamarketplace/bonding-curve.ts`**: Processes trading events on bonding curves
+- **`src/datamarketplace/burn-portal.ts`**: Manages token burning for dataset access
+- **`src/datamarketplace/graduation-manager.ts`**: Handles graduation to Uniswap V2
+- **`src/datamarketplace/dataset-token.ts`**: Dataset token events and transfers
+
+#### Shared Files
+- **`schema.graphql`**: Defines all entities, relationships, and query interfaces for both subgraphs
 - **`queries.graphql`**: Production-ready query examples for frontend integration
 
 ## 🔧 Development

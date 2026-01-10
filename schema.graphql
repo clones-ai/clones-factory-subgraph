@@ -270,3 +270,287 @@ type ReferralReward @entity(immutable: true) {
   blockNumber: BigInt!
   timestamp: BigInt!
 }
+
+# ========================================
+# DATAMARKETPLACE ENTITIES
+# ========================================
+
+# Dataset Factory and Management
+type DatasetFactory @entity(immutable: false) {
+  id: Bytes! # Factory contract address
+  datasetTokenImplementation: Bytes! # Dataset token implementation address
+  bondingCurveImplementation: Bytes! # Bonding curve implementation address
+  clonesToken: Bytes! # CLONES token address
+  protocolFeeRecipient: Bytes! # Protocol fee recipient
+  timelock: Bytes! # Timelock contract address
+  guardian: Bytes! # Guardian address
+  graduationManager: Bytes # Graduation manager address
+  burnPortal: Bytes # Burn portal address
+  
+  # Configuration
+  fallbackLaunchFee: BigInt! # Fallback launch fee in CLONES
+  useOracle: Boolean! # Whether to use oracle for pricing
+  
+  # Statistics
+  totalDatasets: BigInt! # Total number of datasets created
+  totalVolume: BigInt! # Total trading volume across all datasets
+  totalFees: BigInt! # Total fees collected
+  
+  # Relations
+  datasets: [Dataset!]! @derivedFrom(field: "factory")
+  
+  # Timestamps
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+  updatedAt: BigInt!
+}
+
+# Core Dataset Entity
+type Dataset @entity(immutable: false) {
+  id: Bytes! # Dataset token address
+  factory: DatasetFactory! # Factory that created this dataset
+  creator: DatamarketplaceUser! # Dataset creator entity
+  bondingCurve: BondingCurve! # Associated bonding curve
+  
+  # Token Info
+  name: String! # Dataset name
+  symbol: String! # Dataset symbol
+  totalSupply: BigInt! # Total token supply (fixed at 1B)
+  decimals: Int! # Token decimals (6)
+  
+  # Dataset Configuration
+  burnThresholdPercentage: Int! # Burn threshold percentage (1-10%)
+  burnThreshold: BigInt! # Actual burn threshold amount
+  
+  # State
+  isGraduated: Boolean! # Whether dataset has graduated
+  isActive: Boolean! # Whether dataset is active for burning
+  
+  # Statistics
+  totalVolume: BigInt! # Total trading volume
+  totalBurned: BigInt! # Total tokens burned for access
+  totalAccesses: BigInt! # Number of unique users who burned for access
+  uniqueTraders: BigInt! # Number of unique traders
+  totalTrades: BigInt! # Total number of trades
+  
+  # Relations
+  trades: [Trade!]! @derivedFrom(field: "dataset")
+  burns: [BurnForAccess!]! @derivedFrom(field: "dataset")
+  graduation: Graduation # Graduation info (if graduated)
+  burnPortal: BurnPortal # Burn portal (if activated)
+  
+  # Deployment Info
+  salt: Bytes! # CREATE2 salt
+  nonce: BigInt! # Creator nonce
+  
+  # Timestamps
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+  graduatedAt: BigInt # Graduation timestamp
+  activatedAt: BigInt # Burn activation timestamp
+}
+
+# Bonding Curve for each Dataset
+type BondingCurve @entity(immutable: false) {
+  id: Bytes! # Bonding curve contract address
+  dataset: Dataset! # Associated dataset
+  factory: DatasetFactory! # Factory reference
+  
+  # Oracle Configuration
+  ethUsdPriceFeed: Bytes! # ETH/USD price feed address
+  
+  # Virtual Reserves (K = V_ETH × V_TOK)
+  virtualEthReserves: BigInt! # Virtual ETH reserves
+  virtualTokenReserves: BigInt! # Virtual token reserves
+  
+  # Current State
+  currentPrice: BigInt! # Current token price in wei
+  currentMarketCap: BigInt! # Current market cap in ETH
+  graduationThreshold: BigInt! # Graduation threshold in ETH
+  
+  # Trading Statistics
+  totalBuys: BigInt! # Total number of buy transactions
+  totalSells: BigInt! # Total number of sell transactions
+  totalVolumeETH: BigInt! # Total volume in ETH
+  totalVolumeTokens: BigInt! # Total volume in tokens
+  totalCreatorFees: BigInt! # Total creator fees collected
+  totalProtocolFees: BigInt! # Total protocol fees collected
+  
+  # State Flags
+  isGraduated: Boolean! # Whether curve has graduated
+  
+  # Relations
+  trades: [Trade!]! @derivedFrom(field: "bondingCurve")
+  
+  # Timestamps
+  createdAt: BigInt!
+  graduatedAt: BigInt # When graduation was triggered
+}
+
+# Trading Activity
+type Trade @entity(immutable: true) {
+  id: Bytes! # Transaction hash + log index
+  dataset: Dataset! # Dataset being traded
+  bondingCurve: BondingCurve! # Bonding curve used
+  trader: DatamarketplaceUser! # Trader entity
+  
+  # Trade Details
+  type: TradeType! # BUY or SELL
+  ethAmount: BigInt! # ETH amount (spent on buy, received on sell)
+  tokenAmount: BigInt! # Token amount (received on buy, sold on sell)
+  
+  # Fees
+  creatorFee: BigInt! # Fee paid to creator
+  protocolFee: BigInt! # Fee paid to protocol
+  
+  # Price Info
+  priceAfter: BigInt! # Token price after trade
+  marketCapAfter: BigInt! # Market cap after trade
+  
+  # Transaction Info
+  transactionHash: Bytes!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  gasUsed: BigInt!
+  gasPrice: BigInt!
+}
+
+enum TradeType {
+  BUY
+  SELL
+}
+
+# Burn for Access Events
+type BurnForAccess @entity(immutable: true) {
+  id: Bytes! # Transaction hash + log index
+  dataset: Dataset! # Dataset accessed
+  burner: DatamarketplaceUser! # User who burned tokens
+  burnPortal: BurnPortal! # Burn portal used
+  amount: BigInt! # Amount of tokens burned
+  burnThreshold: BigInt! # Required burn threshold at time of burn
+  
+  # Transaction Info
+  transactionHash: Bytes!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+# Graduation Events
+type Graduation @entity(immutable: true) {
+  id: Bytes! # Dataset token address
+  dataset: Dataset! # Dataset that graduated
+  bondingCurve: BondingCurve! # Bonding curve that triggered graduation
+  graduationManager: GraduationManager! # Graduation manager entity
+  
+  # Graduation Details
+  finalMarketCap: BigInt! # Final market cap at graduation
+  ethReserves: BigInt! # ETH reserves at graduation
+  tokenReserves: BigInt! # Token reserves at graduation
+  
+  # Uniswap LP Info
+  lpPair: Bytes! # Uniswap V2 pair address
+  ethContributed: BigInt! # ETH contributed to LP
+  tokensContributed: BigInt! # Tokens contributed to LP
+  lpTokensBurned: BigInt! # LP tokens burned to 0xdead
+  
+  # Transaction Info
+  transactionHash: Bytes!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+# Burn Portal Management
+type BurnPortal @entity(immutable: false) {
+  id: Bytes! # Burn portal contract address
+  datasetFactory: Bytes! # Associated dataset factory
+  graduationManager: Bytes! # Associated graduation manager
+  
+  # Statistics
+  totalDatasets: BigInt! # Number of datasets activated
+  totalBurns: BigInt! # Total burn events
+  totalTokensBurned: BigInt! # Total tokens burned across all datasets
+  uniqueBurners: BigInt! # Number of unique burners
+  
+  # Relations
+  activatedDatasets: [Dataset!]! @derivedFrom(field: "burnPortal") # Datasets activated for burning
+  burns: [BurnForAccess!]! @derivedFrom(field: "burnPortal") # All burn events
+  
+  # Timestamps
+  createdAt: BigInt!
+  updatedAt: BigInt!
+}
+
+# Graduation Manager
+type GraduationManager @entity(immutable: false) {
+  id: Bytes! # Graduation manager contract address
+  datasetFactory: Bytes! # Associated dataset factory
+  burnPortal: Bytes! # Associated burn portal
+  uniswapRouter: Bytes! # Uniswap V2 router address
+  uniswapFactory: Bytes! # Uniswap V2 factory address
+  
+  # Statistics
+  totalGraduations: BigInt! # Number of successful graduations
+  totalLPCreated: BigInt! # Total LP value created in ETH
+  
+  # Relations
+  graduations: [Graduation!]! @derivedFrom(field: "graduationManager")
+  
+  # Timestamps
+  createdAt: BigInt!
+  updatedAt: BigInt!
+}
+
+# Daily Analytics for Datamarketplace
+type DatamarketplaceDailyStats @entity(immutable: false) {
+  id: String! # "YYYY-MM-DD"
+  date: String! # Human readable date
+  
+  # Dataset Activity
+  datasetsCreated: BigInt! # New datasets created
+  datasetsGraduated: BigInt! # Datasets that graduated
+  
+  # Trading Activity
+  totalTrades: BigInt! # Total trades
+  totalVolumeETH: BigInt! # Total volume in ETH
+  totalVolumeTokens: BigInt! # Total volume in tokens
+  uniqueTraders: BigInt! # Unique traders
+  averageTradeSize: BigInt! # Average trade size in ETH
+  
+  # Burn Activity
+  totalBurns: BigInt! # Total burn events
+  totalTokensBurned: BigInt! # Total tokens burned
+  uniqueBurners: BigInt! # Unique burners
+  
+  # Fees
+  totalCreatorFees: BigInt! # Total creator fees
+  totalProtocolFees: BigInt! # Total protocol fees
+  
+  # LP Activity
+  totalLPValue: BigInt! # Total LP value created
+}
+
+# User Activity in Datamarketplace
+type DatamarketplaceUser @entity(immutable: false) {
+  id: Bytes! # User address
+  
+  # Dataset Creation
+  datasetsCreated: BigInt! # Number of datasets created
+  createdDatasets: [Dataset!]! @derivedFrom(field: "creator")
+  
+  # Trading Activity
+  totalTrades: BigInt! # Total number of trades
+  totalVolumeETH: BigInt! # Total trading volume in ETH
+  totalFeesEarned: BigInt! # Total creator fees earned
+  totalFeesPaid: BigInt! # Total fees paid as trader
+  trades: [Trade!]! @derivedFrom(field: "trader")
+  
+  # Burn Activity
+  totalBurns: BigInt! # Number of burn events
+  totalTokensBurned: BigInt! # Total tokens burned
+  uniqueDatasetsAccessed: BigInt! # Number of unique datasets accessed
+  burns: [BurnForAccess!]! @derivedFrom(field: "burner")
+  
+  # Timestamps
+  firstActivityAt: BigInt! # First interaction timestamp
+  lastActivityAt: BigInt! # Last interaction timestamp
+}
