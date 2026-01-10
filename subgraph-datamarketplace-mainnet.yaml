@@ -1,0 +1,164 @@
+specVersion: 1.2.0
+indexerHints:
+  prune: auto
+schema:
+  file: ./schema.graphql
+features: []
+dataSources:
+  # DatasetFactory - Main factory for creating datasets with bonding curves
+  - kind: ethereum
+    name: DatasetFactory
+    network: base
+    source:
+      address: "0x0000000000000000000000000000000000000000" # TO BE UPDATED when deployed
+      abi: DatasetFactory
+      startBlock: 0 # TO BE UPDATED when deployed
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - DatasetFactory
+        - Dataset
+        - BondingCurve
+        - DatamarketplaceUser
+      abis:
+        - name: DatasetFactory
+          file: ./abis/datamarketplace/DatasetFactory.json
+        - name: ERC20
+          file: ./abis/ERC20.json
+      eventHandlers:
+        - event: DatasetCreated(indexed address,indexed address,indexed address,string,string,uint8,bytes32,uint256,uint256)
+          handler: handleDatasetCreated
+        - event: BurnPortalUpdated(indexed address,indexed address)
+          handler: handleBurnPortalUpdated
+        - event: GraduationManagerUpdated(indexed address,indexed address)
+          handler: handleGraduationManagerUpdated
+        - event: FallbackLaunchFeeUpdated(uint256,uint256)
+          handler: handleFallbackLaunchFeeUpdated
+        - event: LaunchFeeUpdated(uint256,uint256)
+          handler: handleLaunchFeeUpdated
+        - event: OracleUsageUpdated(indexed bool)
+          handler: handleOracleUsageUpdated
+      file: ./src/datamarketplace/dataset-factory.ts
+
+  # BurnPortal - Manages token burning for dataset access
+  - kind: ethereum
+    name: BurnPortal
+    network: base
+    source:
+      address: "0x0000000000000000000000000000000000000000" # TO BE UPDATED when deployed
+      abi: BurnPortal
+      startBlock: 0 # TO BE UPDATED when deployed
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - BurnPortal
+        - Dataset
+        - BurnForAccess
+        - DatamarketplaceUser
+      abis:
+        - name: BurnPortal
+          file: ./abis/datamarketplace/BurnPortal.json
+        - name: ERC20
+          file: ./abis/ERC20.json
+      eventHandlers:
+        - event: TokensBurnedForAccess(indexed address,indexed address,uint256,uint256,uint256)
+          handler: handleTokensBurnedForAccess
+        - event: DatasetActivated(indexed address,uint256,uint256)
+          handler: handleDatasetActivated
+      file: ./src/datamarketplace/burn-portal.ts
+
+  # GraduationManager - Manages graduation from bonding curve to Uniswap
+  - kind: ethereum
+    name: GraduationManager
+    network: base
+    source:
+      address: "0x0000000000000000000000000000000000000000" # TO BE UPDATED when deployed
+      abi: GraduationManager
+      startBlock: 0 # TO BE UPDATED when deployed
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - GraduationManager
+        - Dataset
+        - BondingCurve
+        - Graduation
+      abis:
+        - name: GraduationManager
+          file: ./abis/datamarketplace/GraduationManager.json
+        - name: ERC20
+          file: ./abis/ERC20.json
+      eventHandlers:
+        - event: DatasetGraduated(indexed address,indexed address,indexed address,uint256,uint256,uint256,uint256)
+          handler: handleDatasetGraduated
+        - event: BurnPortalActivated(indexed address,indexed address,uint256)
+          handler: handleBurnPortalActivated
+      file: ./src/datamarketplace/graduation-manager.ts
+
+# Templates for dynamically created contracts
+templates:
+  # Template for bonding curve contracts (created via EIP-1167)
+  - kind: ethereum
+    name: BondingCurve
+    network: base
+    source:
+      abi: BondingCurveImplementation
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - BondingCurve
+        - Dataset
+        - Trade
+        - DatamarketplaceUser
+      abis:
+        - name: BondingCurveImplementation
+          file: ./abis/datamarketplace/BondingCurveImplementation.json
+        - name: ERC20
+          file: ./abis/ERC20.json
+      eventHandlers:
+        - event: TokensBought(indexed address,uint256,uint256,uint256,uint256,uint256)
+          handler: handleTokensBought
+        - event: TokensSold(indexed address,uint256,uint256,uint256,uint256,uint256)
+          handler: handleTokensSold
+        - event: GraduationTriggered(uint256,uint256,uint256,uint256)
+          handler: handleGraduationTriggered
+      file: ./src/datamarketplace/bonding-curve.ts
+
+  # Template for dataset token contracts (created via EIP-1167)
+  - kind: ethereum
+    name: DatasetToken
+    network: base
+    source:
+      abi: DatasetTokenImplementation
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Dataset
+        - BurnForAccess
+        - DatamarketplaceUser
+      abis:
+        - name: DatasetTokenImplementation
+          file: ./abis/datamarketplace/DatasetTokenImplementation.json
+        - name: ERC20
+          file: ./abis/ERC20.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleTransfer
+        - event: BurnForDownload(indexed address,uint256,uint256)
+          handler: handleBurnForDownload
+        - event: Graduated(uint256,indexed address)
+          handler: handleGraduated
+        - event: BondingCurveSet(indexed address)
+          handler: handleBondingCurveSet
+        - event: BurnPortalSet(indexed address)
+          handler: handleBurnPortalSet
+      file: ./src/datamarketplace/dataset-token.ts

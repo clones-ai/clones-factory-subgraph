@@ -1,6 +1,6 @@
 {
   "name": "clones-factory-subgraph",
-  "version": "0.0.23",
+  "version": "0.1.0",
   "description": "The Graph subgraph for Clones Factory system",
   "scripts": {
     "codegen": "dotenv -e .env -- graphql-codegen --config codegen.yml",
@@ -9,12 +9,18 @@
     "graph:codegen": "graph codegen subgraph-testnet.yaml",
     "graph:codegen:testnet": "graph codegen subgraph-testnet.yaml",
     "graph:codegen:mainnet": "graph codegen subgraph-mainnet.yaml",
+    "graph:codegen:datamarketplace:testnet": "graph codegen subgraph-datamarketplace-testnet.yaml",
+    "graph:codegen:datamarketplace:mainnet": "graph codegen subgraph-datamarketplace-mainnet.yaml",
     "build": "graph build subgraph-testnet.yaml",
     "build:testnet": "graph build subgraph-testnet.yaml",
     "build:mainnet": "graph build subgraph-mainnet.yaml",
+    "build:datamarketplace:testnet": "graph build subgraph-datamarketplace-testnet.yaml",
+    "build:datamarketplace:mainnet": "graph build subgraph-datamarketplace-mainnet.yaml",
     "deploy": "graph deploy",
     "deploy:testnet": "graph deploy clones-factory-base-sepolia subgraph-testnet.yaml --version-label v$npm_package_version",
     "deploy:mainnet": "graph deploy clones-factory-base subgraph-mainnet.yaml --version-label v$npm_package_version",
+    "deploy:datamarketplace:testnet": "graph deploy clones-datamarketplace-base-sepolia subgraph-datamarketplace-testnet.yaml --version-label v$npm_package_version",
+    "deploy:datamarketplace:mainnet": "graph deploy clones-datamarketplace-base subgraph-datamarketplace-mainnet.yaml --version-label v$npm_package_version",
     "test-queries": "node scripts/test-queries.js",
     "test-queries:testnet": "dotenv -e .env -- cross-env SUBGRAPH_URL=$SUBGRAPH_URL_TESTNET node scripts/test-queries.js",
     "test-queries:mainnet": "dotenv -e .env -- cross-env SUBGRAPH_URL=$SUBGRAPH_URL_MAINNET node scripts/test-queries.js"
